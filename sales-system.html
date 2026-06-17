@@ -1406,20 +1406,42 @@ function updateTotalScore(){
   document.getElementById('totalScore').textContent=total;
 }
 function renderRadar(){
-  const labels=SLIDERS_DEF.map(s=>s.label);
-  const myData=SLIDERS_DEF.map(s=>state.sliders[s.key]);
+  const labels = SLIDERS_DEF.map(s=>s.label);
+  const currentData = SLIDERS_DEF.map(s=>state.sliders[s.key]||0);
+  const hasCurrentData = currentData.some(v=>v>0);
+
+  // 過去セッションの平均
+  const datasets = [];
+  if(skillSessions.length>0){
+    const avgData = SLIDERS_DEF.map(s=>Math.round(skillSessions.reduce((sum,sess)=>sum+(sess[s.key]||0),0)/skillSessions.length));
+    datasets.push({
+      label:`過去${skillSessions.length}回の平均`,
+      data:avgData,
+      borderColor:'#0e9e6e',
+      backgroundColor:'rgba(14,158,110,.12)',
+      pointRadius:4,pointBackgroundColor:'#0e9e6e',borderWidth:2,borderDash:[4,3]
+    });
+  }
+  if(hasCurrentData){
+    datasets.push({
+      label:'現在の商談',
+      data:currentData,
+      borderColor:'#1a7fd4',
+      backgroundColor:'rgba(26,127,212,.15)',
+      pointRadius:4,pointBackgroundColor:'#1a7fd4',borderWidth:2.5
+    });
+  }
+  if(datasets.length===0){
+    datasets.push({label:'スキル',data:[0,0,0,0,0],borderColor:'#b8d8ee',backgroundColor:'rgba(184,216,238,.1)',pointRadius:3,borderWidth:1.5});
+  }
+
   if(chartRadar){chartRadar.destroy();}
   chartRadar=new Chart(document.getElementById('chartRadar').getContext('2d'),{
     type:'radar',
-    data:{
-      labels,
-      datasets:[
-        {label:'あなたのスキル',data:myData,borderColor:'#1a7fd4',backgroundColor:'rgba(26,127,212,.18)',pointRadius:4,pointBackgroundColor:'#1a7fd4',borderWidth:2.5},
-      ]
-    },
+    data:{labels,datasets},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      plugins:{legend:{display:datasets.length>1,labels:{color:'#4a6f8a',font:{size:11},boxWidth:12}}},
       scales:{r:{
         grid:{color:'rgba(26,100,180,.12)'},
         angleLines:{color:'rgba(26,100,180,.12)'},
