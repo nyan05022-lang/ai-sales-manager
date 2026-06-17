@@ -689,7 +689,7 @@ tr:hover td{background:var(--bg3)}
       <div id="pg-profile" class="page">
         <div class="flex-between mb-16">
           <div><h2>プロフィール</h2><p class="text-muted text-sm">診断結果・実績・管理者フィードバック</p></div>
-          <button class="btn-ghost" onclick=""><i class="ti ti-edit"></i> 編集</button>
+          <button class="btn-ghost" onclick="openProfileEdit()"><i class="ti ti-edit"></i> 編集</button>
         </div>
         <div class="grid-2" style="gap:16px">
           <div>
@@ -723,6 +723,20 @@ tr:hover td{background:var(--bg3)}
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE EDIT MODAL -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal">
+    <div class="flex-between mb-16"><h3>プロフィール編集</h3><i class="ti ti-x" style="cursor:pointer;font-size:18px" onclick="document.getElementById('profileModal').classList.remove('open')"></i></div>
+    <div class="form-group"><label>氏名</label><input type="text" id="editName" placeholder="山田 太郎"></div>
+    <div class="form-group"><label>チーム</label><select id="editTeam"><option>東京チームA</option><option>東京チームB</option><option>大阪チーム</option><option>名古屋チーム</option></select></div>
+    <div class="form-group"><label>営業タイプ</label><select id="editType"><option value="driver">ドライバー型</option><option value="expressive">エクスプレッシブ型</option><option value="analytical">アナリティカル型</option><option value="amiable">エミアブル型</option></select></div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn-primary" onclick="saveProfileEdit()">保存</button>
+      <button class="btn-ghost" onclick="document.getElementById('profileModal').classList.remove('open')">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1621,6 +1635,31 @@ function initProfile(){
 
   if(chartGrowth){chartGrowth.destroy();}
   chartGrowth=new Chart(document.getElementById('chartGrowth').getContext('2d'),{type:'line',data:{labels:['1月','2月','3月','4月','5月','6月'],datasets:[{label:'売上（万円）',data:[280,310,295,380,400,420],borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.08)',tension:.4,fill:true,yAxisID:'y'},{label:'KPIスコア',data:[72,74,76,80,84,88],borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}},y:{position:'left',ticks:{color:'#a0aabe',font:{size:10},callback:v=>v+'万'},grid:{color:'rgba(255,255,255,.04)'}},y1:{position:'right',ticks:{color:'#a0aabe',font:{size:10}},grid:{drawOnChartArea:false}}}}});
+}
+
+// ===== PROFILE EDIT =====
+function openProfileEdit(){
+  document.getElementById('editName').value = state.user.name;
+  document.getElementById('editTeam').value = state.user.team;
+  document.getElementById('editType').value = state.user.type;
+  document.getElementById('profileModal').classList.add('open');
+}
+async function saveProfileEdit(){
+  state.user.name = document.getElementById('editName').value || state.user.name;
+  state.user.team = document.getElementById('editTeam').value;
+  state.user.type = document.getElementById('editType').value;
+  state.user.typeLabel = PERSONALITY[state.user.type].label;
+  await saveState();
+  document.getElementById('profileModal').classList.remove('open');
+  document.getElementById('profileName').textContent = state.user.name;
+  document.getElementById('profileTeam').textContent = state.user.team;
+  document.getElementById('profileType').textContent = state.user.typeLabel;
+  document.getElementById('profileAvatar').textContent = state.user.name[0];
+  document.getElementById('userName').textContent = state.user.name;
+  document.getElementById('userTeam').textContent = state.user.team;
+  document.getElementById('userAvatar').textContent = state.user.name[0];
+  initProfile();
+  showNotif('プロフィールを保存しました');
 }
 
 // ===== NAV =====
