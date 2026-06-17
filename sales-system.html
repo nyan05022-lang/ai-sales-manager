@@ -325,39 +325,10 @@ tr:hover td{background:var(--bg3)}
         <div class="flex-between mb-16">
           <div><h2 id="greetUser">おはようございます、山田さん</h2><p class="text-muted text-sm">今日も一日頑張りましょう！</p></div>
           <div class="flex gap-8">
-            <span class="badge badge-green"><i class="ti ti-trending-up"></i> 目標達成率 84%</span>
+            <span class="badge badge-green" id="topAchieveBadge"><i class="ti ti-trending-up"></i> 目標達成率 0%</span>
           </div>
         </div>
-        <div class="grid-4 mb-16">
-          <div class="kpi-card">
-            <div class="kpi-label">今月売上</div>
-            <div class="kpi-val text-green">¥420<span style="font-size:14px">万</span></div>
-            <div class="kpi-change kpi-up"><i class="ti ti-trending-up"></i> 先月比 +12%</div>
-            <div class="progress-bar"><div class="progress-fill" style="width:84%;background:var(--green)"></div></div>
-            <div class="text-xs text-muted mt-8">目標 500万 / 達成率 84%</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">アポ数</div>
-            <div class="kpi-val text-blue">24<span style="font-size:14px">件</span></div>
-            <div class="kpi-change kpi-up"><i class="ti ti-trending-up"></i> 先月比 +4件</div>
-            <div class="progress-bar"><div class="progress-fill" style="width:80%"></div></div>
-            <div class="text-xs text-muted mt-8">目標 30件 / 達成率 80%</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">商談数</div>
-            <div class="kpi-val text-purple">11<span style="font-size:14px">件</span></div>
-            <div class="kpi-change kpi-down"><i class="ti ti-trending-down"></i> 目標 -4件</div>
-            <div class="progress-bar"><div class="progress-fill" style="width:73%;background:var(--amber)"></div></div>
-            <div class="text-xs text-muted mt-8">目標 15件 / 達成率 73%</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">成約数</div>
-            <div class="kpi-val text-amber">4<span style="font-size:14px">件</span></div>
-            <div class="kpi-change kpi-up"><i class="ti ti-trending-up"></i> 達成率 80%</div>
-            <div class="progress-bar"><div class="progress-fill" style="width:80%;background:var(--amber)"></div></div>
-            <div class="text-xs text-muted mt-8">目標 5件 / 達成率 80%</div>
-          </div>
-        </div>
+        <div class="grid-4 mb-16" id="kpiCards"></div>
         <div class="card mb-16">
           <div class="flex-between mb-12">
             <div>
@@ -1003,6 +974,26 @@ function initDashboard(){
   const totalMeeting = monthReports.reduce((s,r)=>s+(r.meeting||0),0);
   const totalContract = monthReports.reduce((s,r)=>s+(r.contract||0),0);
   const goals = state.user.goals||{sales:500,appo:30,meeting:15,contract:5};
+
+  const kpiDefs = [
+    {label:'今月売上',val:totalSales,goal:goals.sales,unit:'万',color:'var(--green)',valClass:'text-green'},
+    {label:'アポ数',val:totalAppo,goal:goals.appo,unit:'件',color:'var(--blue)',valClass:'text-blue'},
+    {label:'商談数',val:totalMeeting,goal:goals.meeting,unit:'件',color:'var(--purple)',valClass:'text-purple'},
+    {label:'成約数',val:totalContract,goal:goals.contract,unit:'件',color:'var(--amber)',valClass:'text-amber'},
+  ];
+  const avgAchieve = Math.round(kpiDefs.reduce((s,k)=>s+(k.goal>0?k.val/k.goal:0),0)/kpiDefs.length*100);
+  document.getElementById('topAchieveBadge').innerHTML = `<i class="ti ti-trending-up"></i> 目標達成率 ${avgAchieve}%`;
+  document.getElementById('kpiCards').innerHTML = kpiDefs.map(k=>{
+    const pct = k.goal>0?Math.min(Math.round(k.val/k.goal*100),100):0;
+    const isUp = k.val>=k.goal;
+    return `<div class="kpi-card">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-val ${k.valClass}">${k.label==='今月売上'?'¥':''}${k.val}<span style="font-size:14px">${k.unit}</span></div>
+      <div class="kpi-change ${isUp?'kpi-up':'kpi-down'}"><i class="ti ti-trending-${isUp?'up':'down'}"></i> 達成率 ${pct}%</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${k.color}"></div></div>
+      <div class="text-xs text-muted mt-8">目標 ${k.goal}${k.unit} / 達成率 ${pct}%</div>
+    </div>`;
+  }).join('');
 
   document.getElementById('kpiProgress').innerHTML = [
     {label:'売上',val:totalSales,goal:goals.sales,unit:'万',color:'var(--green)'},
