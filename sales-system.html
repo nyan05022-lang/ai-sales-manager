@@ -421,8 +421,18 @@ tr:hover td{background:var(--bg3)}
         </div>
         <div class="grid-2" style="gap:16px">
           <div class="card">
-            <h3 class="mb-16">スキル評価スライダー</h3>
-            <div id="sliderArea"></div>
+            <div class="flex-between mb-12">
+              <h3>スキル評価チェックリスト</h3>
+              <span class="badge badge-blue" id="checkBadge">0 / 0 項目</span>
+            </div>
+            <div class="tabs" id="skillTabs" style="flex-wrap:wrap;width:100%">
+              <div class="tab active" onclick="switchSkillTab('rapport',this)">ラポール</div>
+              <div class="tab" onclick="switchSkillTab('hearing',this)">ヒアリング</div>
+              <div class="tab" onclick="switchSkillTab('deepdive',this)">深掘り</div>
+              <div class="tab" onclick="switchSkillTab('proposal',this)">提案</div>
+              <div class="tab" onclick="switchSkillTab('closing',this)">クロージング</div>
+            </div>
+            <div id="checklistArea" style="margin-top:12px"></div>
             <hr class="separator">
             <div class="flex-between">
               <span class="text-muted text-sm">総合スコア</span>
@@ -1188,22 +1198,121 @@ function renderReportHistory(){
     </div>`).join('') || '<p class="text-muted text-sm">まだ日報がありません</p>';
 }
 
-// ===== SLIDERS =====
+// ===== CHECKLIST =====
 let chartRadar;
+const CHECKLIST_DEF = {
+  rapport: {
+    label:'ラポール形成力', desc:'顧客との信頼関係構築',
+    items:[
+      '訪問前に顧客・企業情報をリサーチした',
+      '最初の挨拶で相手の名前を呼んだ',
+      '共通の話題（趣味・地域・業界）で場を和ませた',
+      '相手のペース・話し方に合わせた',
+      '笑顔・明るいトーンを意識した',
+      '相手の感情・状況に共感を示した',
+      '非言語コミュニケーション（うなずき・アイコンタクト）を意識した',
+      '次回につながる関係性を築けた'
+    ]
+  },
+  hearing: {
+    label:'ヒアリング力', desc:'課題・ニーズの引き出し',
+    items:[
+      'オープンクエスチョンで会話を広げた',
+      '相手の話を最後まで遮らずに聞いた',
+      '相手の発言を要約・確認した（バックトラッキング）',
+      '潜在ニーズを引き出す質問ができた',
+      '現状・理想・ギャップを整理できた',
+      '数字・事実ベースで課題を確認した',
+      '競合他社の状況を把握できた',
+      '意思決定者・キーマンを特定できた'
+    ]
+  },
+  deepdive: {
+    label:'課題深掘り力', desc:'本質的な課題の特定',
+    items:[
+      '表面的な課題の背景・原因を探った',
+      'SPIN話法（状況・問題・示唆・解決）を意識した',
+      '課題の優先順位を確認できた',
+      '課題が解決されない場合のリスクを共有した',
+      '顧客が気づいていない課題を提示できた',
+      '数値・データで課題の大きさを示した',
+      '解決の緊急性を確認できた',
+      '予算・権限の有無を確認できた'
+    ]
+  },
+  proposal: {
+    label:'提案力', desc:'ソリューション提案の質',
+    items:[
+      '顧客の課題に合わせたカスタム提案ができた',
+      '具体的な導入効果・ROIを示した',
+      '競合との差別化ポイントを明確に伝えた',
+      '事例・実績を効果的に活用した',
+      '視覚的にわかりやすい提案資料を準備した',
+      '複数の提案オプションを用意した',
+      '顧客の懸念・反論への回答を準備した',
+      '次のステップ・スケジュールを提案した'
+    ]
+  },
+  closing: {
+    label:'クロージング力', desc:'成約への導き方',
+    items:[
+      '購買サインを見逃さず対応した',
+      '適切なタイミングでクロージングに移行した',
+      '価格交渉に自信を持って対応した',
+      '期限・緊急性を活用したクロージングができた',
+      '反論を適切に処理できた（反論処理）',
+      '代替案・妥協案を提示できた',
+      '最終決断を促す質問ができた',
+      '成約後のフォローアップを約束した'
+    ]
+  }
+};
+let checkState = {rapport:{},hearing:{},deepdive:{},proposal:{},closing:{}};
+let currentSkillTab = 'rapport';
+
 function initSliders(){
-  document.getElementById('sliderArea').innerHTML=SLIDERS_DEF.map(s=>`
-    <div class="slider-row">
-      <div class="slider-label"><span>${s.label}<span class="text-xs text-muted" style="margin-left:6px">${s.desc}</span></span><span class="slider-val" id="sv-${s.key}">${state.sliders[s.key]}</span></div>
-      <input type="range" min="0" max="100" step="1" value="${state.sliders[s.key]}" oninput="updateSlider('${s.key}',+this.value)">
-    </div>`).join('');
+  switchSkillTab('rapport', document.querySelector('#skillTabs .tab'));
   updateTotalScore();
   renderRadar();
 }
-function updateSlider(key,val){
-  state.sliders[key]=val;
-  document.getElementById('sv-'+key).textContent=val;
+function switchSkillTab(key, el){
+  currentSkillTab = key;
+  document.querySelectorAll('#skillTabs .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderChecklist(key);
+}
+function renderChecklist(key){
+  const def = CHECKLIST_DEF[key];
+  const checks = checkState[key];
+  const checked = Object.values(checks).filter(Boolean).length;
+  const score = Math.round(checked/def.items.length*100);
+  document.getElementById('checklistArea').innerHTML = `
+    <div style="margin-bottom:10px">
+      <div class="flex-between mb-6">
+        <span style="font-size:13px;font-weight:600;color:var(--blue)">${def.label}</span>
+        <span style="font-size:12px;color:var(--text2)">${checked}/${def.items.length}項目 — <strong style="color:var(--blue)">${score}点</strong></span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${score}%;background:var(--blue)"></div></div>
+    </div>
+    ${def.items.map((item,i)=>`
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" ${checks[i]?'checked':''} onchange="toggleCheck('${key}',${i},this.checked)"
+          style="width:16px;height:16px;flex-shrink:0;margin-top:1px;accent-color:var(--blue)">
+        <span style="font-size:13px;line-height:1.5;color:${checks[i]?'var(--text2)':'var(--text)'};text-decoration:${checks[i]?'line-through':''}">${item}</span>
+      </label>`).join('')}`;
+}
+function toggleCheck(key, idx, val){
+  checkState[key][idx] = val;
+  const def = CHECKLIST_DEF[key];
+  const checked = Object.values(checkState[key]).filter(Boolean).length;
+  state.sliders[key] = Math.round(checked/def.items.length*100);
+  renderChecklist(key);
   updateTotalScore();
   renderRadar();
+  const totalChecked = Object.values(checkState).reduce((s,c)=>s+Object.values(c).filter(Boolean).length,0);
+  const totalItems = Object.values(CHECKLIST_DEF).reduce((s,d)=>s+d.items.length,0);
+  document.getElementById('checkBadge').textContent = `${totalChecked} / ${totalItems} 項目`;
+  saveState();
 }
 function updateTotalScore(){
   const total=Math.round(Object.values(state.sliders).reduce((a,b)=>a+b,0)/SLIDERS_DEF.length);
