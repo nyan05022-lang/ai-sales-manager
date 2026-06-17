@@ -627,7 +627,7 @@ tr:hover td{background:var(--bg3)}
         <div class="grid-4 mb-16">
           <div class="kpi-card" style="text-align:center">
             <div class="kpi-label">マインドスコア</div>
-            <div class="kpi-val" style="color:var(--purple)">78</div>
+            <div class="kpi-val" style="color:var(--purple)" id="mindScoreVal">--</div>
             <div class="text-xs text-muted">/ 100点</div>
           </div>
           <div class="kpi-card" style="text-align:center">
@@ -642,8 +642,8 @@ tr:hover td{background:var(--bg3)}
           </div>
           <div class="kpi-card" style="text-align:center">
             <div class="kpi-label">バーンアウトリスク</div>
-            <div class="kpi-val" style="color:var(--amber)">低</div>
-            <div class="text-xs" style="color:var(--amber);margin-top:4px">健全な状態</div>
+            <div class="kpi-val" style="color:var(--amber)" id="mindBurnout">--</div>
+            <div class="text-xs" style="color:var(--amber);margin-top:4px" id="mindBurnoutLabel">ジャーナルを記録してください</div>
           </div>
         </div>
         <div class="grid-2" style="gap:16px">
@@ -668,9 +668,10 @@ tr:hover td{background:var(--bg3)}
                 <span id="mood5" class="personality-card selected" style="padding:10px 14px;flex:1" onclick="selectMood(5,this)">😄</span>
               </div>
             </div>
-            <div class="form-group"><label>今日の一言</label><textarea rows="3" placeholder="今日感じたこと、気づきなど...">顧客の反応が良く、モチベーションが上がった。明日もこの調子で頑張りたい。</textarea></div>
+            <div class="form-group"><label>今日の一言</label><textarea id="mindNote" rows="3" placeholder="今日感じたこと、気づきなど..."></textarea></div>
           </div>
           <button class="btn-primary" onclick="saveMindJournal()">保存</button>
+          <div class="mt-16"><h3 style="font-size:14px;margin-bottom:10px">過去の記録</h3><div id="mindHistory"><p class="text-muted text-sm">まだジャーナルがありません</p></div></div>
         </div>
       </div>
 
@@ -1488,7 +1489,25 @@ function generateKpiAI(){
 
 // ===== RANKING =====
 let chartTeam;
-function initRanking(){renderRanking();}
+async function initRanking(){
+  if(!state.userId){renderRanking();return;}
+  const {data:profiles} = await sb.from('profiles').select('id,name,team,goals');
+  const {data:reports} = await sb.from('daily_reports').select('user_id,sales,appo,meeting,contract');
+  if(!profiles||profiles.length===0){renderRanking();return;}
+  const now = new Date();
+  const prefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const rankData = profiles.map((p,i)=>{
+    const myReports = (reports||[]).filter(r=>r.user_id===p.id);
+    const sales = myReports.reduce((s,r)=>s+(r.sales||0),0);
+    const appo = myReports.reduce((s,r)=>s+(r.appo||0),0);
+    const contract = myReports.reduce((s,r)=>s+(r.contract||0),0);
+    const goal = p.goals?.sales||500;
+    const kpi = Math.round((sales/goal)*100);
+    return {name:p.name||'ユーザー',team:p.team||'',sales,appo,contract,kpi,isMe:p.id===state.userId};
+  }).sort((a,b)=>b.sales-a.sales).map((p,i)=>({...p,rank:i+1}));
+  state._rankData = rankData;
+  renderRanking();
+}
 function switchRankTab(tab,el){
   state.rankTab=tab;
   document.querySelectorAll('#rankTabs .tab').forEach(e=>e.classList.remove('active'));
@@ -1496,29 +1515,36 @@ function switchRankTab(tab,el){
   renderRanking();
 }
 function renderRanking(){
-  const data=RANKINGS[state.rankTab];
-  const isSales=state.rankTab!=='kpi';
-  document.getElementById('rankingTable').innerHTML=`<table><thead><tr><th>順位</th><th>氏名</th><th>チーム</th><th>${state.rankTab==='kpi'?'KPIスコア':'売上'}</th><th>アポ数</th><th>成約数</th><th>KPI</th></tr></thead><tbody>${
-    data.map(p=>`<tr><td><div class="rank-num rank-${p.rank}">${p.rank}</div></td><td><span style="font-weight:${p.name===state.user.name?'700':'400'};color:${p.name===state.user.name?'var(--blue)':'inherit'}">${p.name}${p.name===state.user.name?' 👈':''}</span></td><td>${p.team}</td><td style="font-weight:600;color:var(--green)">${state.rankTab==='kpi'?p.kpi+'点':'¥'+p.sales+'万'}</td><td>${p.appo}件</td><td>${p.contract}件</td><td><span class="badge ${p.kpi>=85?'badge-green':p.kpi>=75?'badge-blue':'badge-amber'}">${p.kpi}</span></td></tr>`).join('')
+  const data = state._rankData || RANKINGS[state.rankTab];
+  document.getElementById('rankingTable').innerHTML=`<table><thead><tr><th>順位</th><th>氏名</th><th>チーム</th><th>売上</th><th>アポ数</th><th>成約数</th><th>KPI</th></tr></thead><tbody>${
+    data.map(p=>`<tr style="background:${p.isMe?'#f0f8ff':''}"><td><div class="rank-num rank-${Math.min(p.rank,3)}">${p.rank}</div></td><td><span style="font-weight:${p.isMe?'700':'400'};color:${p.isMe?'var(--blue)':'inherit'}">${p.name}${p.isMe?' 👈':''}</span></td><td>${p.team}</td><td style="font-weight:600;color:var(--green)">¥${p.sales}万</td><td>${p.appo}件</td><td>${p.contract}件</td><td><span class="badge ${p.kpi>=85?'badge-green':p.kpi>=70?'badge-blue':'badge-amber'}">${p.kpi}</span></td></tr>`).join('')
   }</tbody></table>`;
 
-  const comp=[
-    {label:'売上',you:420,avg:348,unit:'万'},
-    {label:'アポ率',you:9.5,avg:7.2,unit:'%'},
-    {label:'成約率',you:16.7,avg:14.1,unit:'%'},
-    {label:'KPI',you:88,avg:77,unit:'pt'},
-  ];
-  document.getElementById('comparisonArea').innerHTML=comp.map(c=>`
-    <div style="margin-bottom:12px">
-      <div class="flex-between text-sm mb-8"><span>${c.label}</span><span style="color:var(--green)">あなた ${c.you}${c.unit} / 平均 ${c.avg}${c.unit}</span></div>
-      <div style="display:flex;gap:4px;align-items:center">
-        <div style="flex:${c.you};background:var(--blue);height:8px;border-radius:4px 0 0 4px"></div>
-        <div style="flex:${Math.max(0,(c.avg/c.you*c.you)-c.you)};background:var(--bg4);height:8px;border-radius:0 4px 4px 0"></div>
+  const me = data.find(p=>p.isMe)||{sales:0,appo:0,contract:0,kpi:0};
+  const avg = d=>data.length>0?Math.round(data.reduce((s,p)=>s+(p[d]||0),0)/data.length):0;
+  const avgSales=avg('sales'), avgAppo=avg('appo'), avgKpi=avg('kpi');
+  document.getElementById('comparisonArea').innerHTML=[
+    {label:'売上',you:me.sales,avg:avgSales,unit:'万'},
+    {label:'アポ数',you:me.appo,avg:avgAppo,unit:'件'},
+    {label:'KPI達成率',you:me.kpi,avg:avgKpi,unit:'%'},
+  ].map(c=>{
+    const max=Math.max(c.you,c.avg,1);
+    return `<div style="margin-bottom:12px">
+      <div class="flex-between text-sm mb-8"><span>${c.label}</span><span style="color:${c.you>=c.avg?'var(--green)':'var(--amber)'}">あなた ${c.you}${c.unit} / 平均 ${c.avg}${c.unit}</span></div>
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:3px">
+        <div style="width:36px;font-size:10px;color:var(--text2)">あなた</div>
+        <div style="flex:1;background:var(--bg4);border-radius:4px;height:8px"><div style="width:${Math.round(c.you/max*100)}%;background:var(--blue);height:8px;border-radius:4px"></div></div>
       </div>
-    </div>`).join('');
+      <div style="display:flex;gap:4px;align-items:center">
+        <div style="width:36px;font-size:10px;color:var(--text2)">平均</div>
+        <div style="flex:1;background:var(--bg4);border-radius:4px;height:8px"><div style="width:${Math.round(c.avg/max*100)}%;background:var(--bg3);border:1px solid var(--border2);height:8px;border-radius:4px"></div></div>
+      </div>
+    </div>`;}).join('');
 
   if(chartTeam){chartTeam.destroy();}
-  chartTeam=new Chart(document.getElementById('chartTeam').getContext('2d'),{type:'bar',data:{labels:['東京A','東京B','大阪','名古屋'],datasets:[{label:'売上（万円）',data:[800,620,750,680],backgroundColor:['#4f8ef7','#a78bfa','#34d399','#fbbf24']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{color:'#a0aabe',font:{size:11},callback:v=>v+'万'},grid:{color:'rgba(255,255,255,.04)'}}}}});
+  const teams=[...new Set(data.map(p=>p.team||'未設定'))];
+  const teamSales=teams.map(t=>data.filter(p=>p.team===t).reduce((s,p)=>s+(p.sales||0),0));
+  chartTeam=new Chart(document.getElementById('chartTeam').getContext('2d'),{type:'bar',data:{labels:teams,datasets:[{label:'売上（万円）',data:teamSales,backgroundColor:['#4f8ef7','#a78bfa','#34d399','#fbbf24','#f87171']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a6f8a',font:{size:11}}},y:{ticks:{color:'#4a6f8a',font:{size:11},callback:v=>v+'万'}}}}});
 }
 
 // ===== CRM =====
@@ -1701,28 +1727,44 @@ async function deleteTask(id){
 // ===== COACH =====
 let chartGap;
 function initCoach(){
+  const mReports = getMonthReports();
+  const totalSales = mReports.reduce((s,r)=>s+(r.sales||0),0);
+  const totalAppo = mReports.reduce((s,r)=>s+(r.appo||0),0);
+  const totalCall = mReports.reduce((s,r)=>s+(r.call||0),0);
+  const totalContract = mReports.reduce((s,r)=>s+(r.contract||0),0);
+  const goals = state.user.goals||{sales:500,appo:30,meeting:15,contract:5};
+  const appoRate = totalCall>0?Math.round(totalAppo/totalCall*100):0;
+  const salesAchieve = goals.sales>0?Math.round(totalSales/goals.sales*100):0;
+  const appoAchieve = goals.appo>0?Math.round(totalAppo/goals.appo*100):0;
+
   document.getElementById('weeklyGoals').innerHTML=[
-    {icon:'ti-phone',text:'架電数を50件/日に増やす',status:'進行中'},
-    {icon:'ti-users',text:'商談後24時間以内にフォローメール送付',status:'未達'},
-    {icon:'ti-chart-bar',text:'ヒアリングシートを全商談で活用',status:'達成'},
+    {icon:'ti-coin',text:`売上目標 ¥${goals.sales}万 → 現在 ¥${totalSales}万（${salesAchieve}%）`,status:salesAchieve>=100?'達成':salesAchieve>=60?'進行中':'未達'},
+    {icon:'ti-phone',text:`アポ数目標 ${goals.appo}件 → 現在 ${totalAppo}件（${appoAchieve}%）`,status:appoAchieve>=100?'達成':appoAchieve>=60?'進行中':'未達'},
+    {icon:'ti-chart-line',text:`アポ率 ${appoRate}% ${appoRate>=10?'（良好）':appoRate>=6?'（標準）':'（要改善）'}`,status:appoRate>=10?'達成':appoRate>=6?'進行中':'未達'},
     {icon:'ti-brain',text:'SPIN話法を意識した質問設計',status:'進行中'},
   ].map(g=>`<div class="flex-between" style="padding:7px 0;border-bottom:1px solid var(--border)"><div class="flex gap-8"><i class="ti ${g.icon}" style="color:var(--blue)"></i><span style="font-size:13px">${g.text}</span></div><span class="badge ${g.status==='達成'?'badge-green':g.status==='進行中'?'badge-blue':'badge-red'}">${g.status}</span></div>`).join('');
 
+  const p = PERSONALITY[state.user.type]||PERSONALITY.driver;
+  const salesGap = goals.sales - totalSales;
   document.getElementById('coachPlan').innerHTML=`
     <div class="ai-box">
       <div class="ai-box-header"><i class="ti ti-target"></i>個別育成プラン - ${state.user.name}</div>
-      <p style="font-size:13px;line-height:1.8"><strong>タイプ：${state.user.typeLabel}</strong><br>
-      【短期目標】クロージング力を+15pt改善し、成約率20%達成<br>
-      【中期目標】月間売上600万を3ヶ月以内に達成<br>
-      【重点スキル】ヒアリング精度・クロージングタイミング<br>
-      【推奨アクション】<br>
-      ① SPIN話法ワークシートを活用した質問設計<br>
-      ② トップ営業の商談録音を週1回レビュー<br>
-      ③ 毎週金曜に振り返りジャーナル記入</p>
+      <p style="font-size:13px;line-height:1.8">
+        <strong>タイプ：${state.user.typeLabel}</strong><br>
+        【今月の状況】売上 ¥${totalSales}万 / アポ ${totalAppo}件 / 成約 ${totalContract}件<br>
+        ${salesGap>0?`【残り目標】あと ¥${salesGap}万 で月間目標達成`:'【目標達成】今月の売上目標をクリアしました！'}<br>
+        【強み】${p.strength}<br>【成長ポイント】${p.weakness}<br>
+        【推奨アクション】<br>
+        ① ${p.advice}<br>
+        ② 毎商談後にチェックリストを記録して弱点を可視化<br>
+        ③ 日報の改善点をAIコーチで分析して弱点を把握
+      </p>
     </div>`;
 
   if(chartGap){chartGap.destroy();}
-  chartGap=new Chart(document.getElementById('chartGap').getContext('2d'),{type:'bar',data:{labels:['架電数','アポ率','商談数','成約率','売上'],datasets:[{label:'あなた',data:[45,9.5,11,16.7,420],backgroundColor:'rgba(79,142,247,.7)'},{label:'トップ営業',data:[60,13,18,22,680],backgroundColor:'rgba(52,211,153,.5)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{color:'#a0aabe',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}}}}});
+  const rankMe = (state._rankData||[]).find(p=>p.isMe)||{sales:totalSales,appo:totalAppo};
+  const rankTop = (state._rankData||[])[0]||{sales:Math.round(totalSales*1.5),appo:Math.round(totalAppo*1.3)};
+  chartGap=new Chart(document.getElementById('chartGap').getContext('2d'),{type:'bar',data:{labels:['売上（万）','アポ数','成約数'],datasets:[{label:'あなた',data:[totalSales,totalAppo,totalContract],backgroundColor:'rgba(79,142,247,.7)'},{label:'トップ',data:[rankTop.sales,rankTop.appo,rankTop.contract||Math.round(totalContract*1.3)],backgroundColor:'rgba(52,211,153,.5)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#4a6f8a',font:{size:11}}}},scales:{x:{ticks:{color:'#4a6f8a',font:{size:10}}},y:{ticks:{color:'#4a6f8a',font:{size:10}}}}}});
 }
 function analyzeReports(){
   const btn=document.getElementById('analyzeBtn');
@@ -1862,11 +1904,57 @@ function initMind(){
   if(chartMind){chartMind.destroy();}
   chartMind=new Chart(document.getElementById('chartMind').getContext('2d'),{type:'line',data:{labels:['4月','5月','6月'],datasets:[{label:'マインドスコア',data:[65,72,78],borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.1)',tension:.4,fill:true,pointRadius:5},{label:'レジリエンス',data:[70,76,82],borderColor:'#2dd4bf',backgroundColor:'transparent',tension:.4,pointRadius:4,borderDash:[5,3]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}},y:{min:50,max:100,ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}}}}});
 }
+let selectedMood = 3;
 function selectMood(n,el){
+  selectedMood = n;
   document.querySelectorAll('[id^=mood]').forEach(e=>e.classList.remove('selected'));
   el.classList.add('selected');
 }
-function saveMindJournal(){showNotif('ジャーナルを保存しました');}
+
+async function saveMindJournal(){
+  const note = document.getElementById('mindNote').value;
+  const date = new Date().toISOString().split('T')[0];
+  if(state.userId){
+    await sb.from('mind_journals').insert({user_id:state.userId, date, mood:selectedMood, note});
+  }
+  showNotif('ジャーナルを保存しました');
+  document.getElementById('mindNote').value='';
+  loadMindJournals();
+}
+
+let mindJournals = [];
+async function loadMindJournals(){
+  if(!state.userId) return;
+  const {data} = await sb.from('mind_journals').select('*').eq('user_id',state.userId).order('created_at',{ascending:false}).limit(10);
+  mindJournals = data||[];
+  renderMindHistory();
+  updateMindScore();
+}
+
+function renderMindHistory(){
+  const el = document.getElementById('mindHistory');
+  if(!el) return;
+  el.innerHTML = mindJournals.length===0
+    ? '<p class="text-muted text-sm">まだジャーナルがありません</p>'
+    : mindJournals.map(j=>`
+      <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div class="flex-between mb-4">
+          <span class="text-xs text-muted">${j.date}</span>
+          <span style="font-size:18px">${['😞','😕','😐','😊','😄'][j.mood-1]}</span>
+        </div>
+        <p style="font-size:12px;color:var(--text)">${j.note||''}</p>
+      </div>`).join('');
+}
+
+function updateMindScore(){
+  if(mindJournals.length===0) return;
+  const avgMood = Math.round(mindJournals.reduce((s,j)=>s+j.mood,0)/mindJournals.length);
+  const score = avgMood*20;
+  const burnout = score>=80?'低':'score>=60?\'中\':\'高\'';
+  document.getElementById('mindScoreVal').textContent = score;
+  document.getElementById('mindBurnout').textContent = score>=80?'低':score>=60?'中':'高';
+  document.getElementById('mindBurnoutLabel').textContent = score>=80?'健全な状態':score>=60?'要注意':'要休息';
+}
 
 // ===== PROFILE =====
 let chartGrowth;
@@ -1944,6 +2032,9 @@ function showPage(id,el){
   if(id==='dashboard')initDashboard();
   if(id==='profile')initProfile();
   if(id==='kpi'){initSliders();loadSkillSessions();}
+  if(id==='ranking')initRanking();
+  if(id==='mind')loadMindJournals();
+  if(id==='coach')initCoach();
 }
 
 // ===== UTILS =====
