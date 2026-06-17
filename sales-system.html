@@ -209,8 +209,8 @@ tr:hover td{background:var(--bg3)}
         <div class="form-group"><label>氏名</label><input type="text" id="regName" placeholder="山田 太郎"></div>
         <div class="form-group"><label>チーム</label><select id="regTeam"><option>東京チームA</option><option>東京チームB</option><option>大阪チーム</option><option>名古屋チーム</option></select></div>
       </div>
-      <div class="form-group"><label>メールアドレス</label><input type="email" placeholder="example@company.com"></div>
-      <div class="form-group"><label>パスワード</label><input type="password" placeholder="8文字以上"></div>
+      <div class="form-group"><label>メールアドレス</label><input type="email" id="regEmail" placeholder="example@company.com"></div>
+      <div class="form-group"><label>パスワード</label><input type="password" id="regPass" placeholder="8文字以上"></div>
       <button class="btn-primary" style="width:100%;margin-top:4px" onclick="goToRegisterFlow()">次へ → 性格診断</button>
     </div>
   </div>
@@ -272,7 +272,7 @@ tr:hover td{background:var(--bg3)}
 </div>
 
 <!-- APP -->
-<div id="app" style="display:flex">
+<div id="app" style="display:none">
   <nav class="sidebar">
     <div class="sidebar-logo">
       <span><i class="ti ti-rocket" style="color:var(--blue)"></i> AI営業</span>
@@ -768,16 +768,23 @@ tr:hover td{background:var(--bg3)}
 <div class="notif" id="notif"><i class="ti ti-check-circle"></i><span id="notifText">保存しました</span></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ===== SUPABASE =====
+const SUPABASE_URL = 'https://qirhvjrpygnudkcbmxxa.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpcmh2anJweWdudWRrY2JteHhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NjkxOTEsImV4cCI6MjA5NzE0NTE5MX0.6W5zohXFmy6ccNQ8_SCJChfo0uwMAW0cEqSl5hh7Hu4';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ===== DATA =====
 let state = {
-  user: JSON.parse(localStorage.getItem('sm_user') || 'null') || {name:'山田 太郎',team:'東京チームA',type:'driver',typeLabel:'ドライバー型',goals:{sales:500,appo:30,meeting:15,contract:5}},
-  reports: JSON.parse(localStorage.getItem('sm_reports') || '[]'),
-  crm: JSON.parse(localStorage.getItem('sm_crm') || 'null') || defaultCRM(),
-  tasks: JSON.parse(localStorage.getItem('sm_tasks') || 'null') || defaultTasks(),
-  sliders: {rapport:70,hearing:65,deepdive:60,proposal:75,closing:55},
+  user: {name:'', team:'', type:'driver', typeLabel:'ドライバー型', goals:{sales:500,appo:30,meeting:15,contract:5}},
+  reports: [],
+  crm: [],
+  tasks: [],
+  sliders: {rapport:50,hearing:50,deepdive:50,proposal:50,closing:50},
   rankTab:'weekly',
-  selectedType: 'driver'
+  selectedType: 'driver',
+  userId: null
 };
 
 function defaultCRM(){return[
@@ -843,12 +850,25 @@ function setAuthTab(tab, el){
   document.getElementById('loginForm').style.display = tab==='login'?'block':'none';
   document.getElementById('registerForm').style.display = tab==='register'?'block':'none';
 }
-function doLogin(){
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPass').value;
+  if(!email||!pass){showNotif('メールとパスワードを入力してください');return;}
+  const btn = event.target; btn.textContent='ログイン中...'; btn.disabled=true;
+  const {data, error} = await sb.auth.signInWithPassword({email, password: pass});
+  btn.textContent='ログイン'; btn.disabled=false;
+  if(error){showNotif('ログイン失敗: '+error.message);return;}
+  await loadUserData(data.user.id);
   document.getElementById('loginPage').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
 }
 function goToRegisterFlow(){
+  const email = document.getElementById('regEmail').value;
+  const pass = document.getElementById('regPass').value;
+  const name = document.getElementById('regName').value;
+  if(!email||!pass||!name){showNotif('全項目を入力してください');return;}
+  if(pass.length<6){showNotif('パスワードは6文字以上です');return;}
   document.getElementById('loginPage').style.display='none';
   document.getElementById('registerPage').style.display='block';
 }
@@ -863,18 +883,51 @@ function nextDiagStep(){
   document.getElementById('s2').classList.remove('active');document.getElementById('s2').classList.add('done');
   document.getElementById('s3').classList.add('active');
 }
-function completeRegister(){
-  state.user.type=state.selectedType;
-  state.user.typeLabel=PERSONALITY[state.selectedType].label;
-  state.user.goals={sales:+document.getElementById('goalSales').value,appo:+document.getElementById('goalAppo').value,meeting:+document.getElementById('goalMeeting').value,contract:+document.getElementById('goalContract').value};
-  saveState();
+async function completeRegister(){
+  const email = document.getElementById('regEmail').value;
+  const pass = document.getElementById('regPass').value;
+  const name = document.getElementById('regName').value || 'ユーザー';
+  const team = document.getElementById('regTeam').value;
+  const {data, error} = await sb.auth.signUp({email, password: pass});
+  if(error){showNotif('登録失敗: '+error.message);return;}
+  state.userId = data.user.id;
+  state.user.name = name;
+  state.user.team = team;
+  state.user.type = state.selectedType;
+  state.user.typeLabel = PERSONALITY[state.selectedType].label;
+  state.user.goals = {sales:+document.getElementById('goalSales').value,appo:+document.getElementById('goalAppo').value,meeting:+document.getElementById('goalMeeting').value,contract:+document.getElementById('goalContract').value};
+  await sb.from('profiles').upsert({id:state.userId, name, team, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders});
+  state.crm = defaultCRM();
+  state.tasks = defaultTasks();
   document.getElementById('registerPage').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
 }
-function doLogout(){
+async function doLogout(){
+  await sb.auth.signOut();
+  state = {user:{name:'',team:'',type:'driver',typeLabel:'ドライバー型',goals:{sales:500,appo:30,meeting:15,contract:5}},reports:[],crm:[],tasks:[],sliders:{rapport:50,hearing:50,deepdive:50,proposal:50,closing:50},rankTab:'weekly',selectedType:'driver',userId:null};
   document.getElementById('app').style.display='none';
   document.getElementById('loginPage').style.display='flex';
+}
+
+// ===== LOAD USER DATA =====
+async function loadUserData(userId){
+  state.userId = userId;
+  const {data:profile} = await sb.from('profiles').select('*').eq('id',userId).single();
+  if(profile){
+    state.user.name = profile.name||'ユーザー';
+    state.user.team = profile.team||'';
+    state.user.type = profile.type||'driver';
+    state.user.typeLabel = profile.type_label||'ドライバー型';
+    state.user.goals = profile.goals||{sales:500,appo:30,meeting:15,contract:5};
+    if(profile.sliders) state.sliders = profile.sliders;
+  }
+  const {data:reports} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
+  state.reports = (reports||[]).map(r=>({id:r.id,date:r.date,call:r.call||0,appo:r.appo||0,meeting:r.meeting||0,contract:r.contract||0,proposal:r.proposal||0,sales:r.sales||0,good:r.good||'',bad:r.bad||'',plan:r.plan||''}));
+  const {data:crm} = await sb.from('crm_contacts').select('*').eq('user_id',userId).order('created_at',{ascending:false});
+  state.crm = (crm&&crm.length>0)?crm.map(c=>({id:c.id,company:c.company,contact:c.contact,status:c.status,amount:c.amount,prob:c.prob,owner:c.owner,date:c.date,note:c.note})):defaultCRM();
+  const {data:tasks} = await sb.from('tasks').select('*').eq('user_id',userId).order('created_at',{ascending:false});
+  state.tasks = (tasks&&tasks.length>0)?tasks.map(t=>({id:t.id,name:t.title,priority:t.priority,due:t.due,status:t.status,note:t.note||''})):defaultTasks();
 }
 
 // ===== APP INIT =====
@@ -1058,10 +1111,13 @@ function renderSalesChart(mode){
 }
 
 // ===== REPORT =====
-function saveReport(){
+async function saveReport(){
   const r={id:Date.now(),date:document.getElementById('reportDate').value,call:+document.getElementById('rCall').value,appo:+document.getElementById('rAppo').value,meeting:+document.getElementById('rMeeting').value,contract:+document.getElementById('rContract').value,proposal:+document.getElementById('rProposal').value,sales:+document.getElementById('rSales').value,good:document.getElementById('rGood').value,bad:document.getElementById('rBad').value,plan:document.getElementById('rPlan').value};
   state.reports.unshift(r);
-  saveState();
+  if(state.userId){
+    const {data} = await sb.from('daily_reports').insert({user_id:state.userId,date:r.date,call:r.call,appo:r.appo,meeting:r.meeting,contract:r.contract,proposal:r.proposal,sales:r.sales,good:r.good,bad:r.bad,plan:r.plan}).select().single();
+    if(data) state.reports[0].id = data.id;
+  }
   renderReportHistory();
   const appoRate=r.call>0?Math.round(r.appo/r.call*100):0;
   const ai = generateReportAI(r,appoRate);
@@ -1204,11 +1260,15 @@ function renderCRM(filter=''){
     </tr>`).join('');
 }
 function filterCRM(v){renderCRM(v);}
-function addCRMEntry(){
+async function addCRMEntry(){
   const entry={id:Date.now(),company:document.getElementById('crmCompany').value||'新規顧客',contact:document.getElementById('crmContact').value||'ご担当者様',status:document.getElementById('crmStatus').value,amount:+document.getElementById('crmAmount').value||0,prob:+document.getElementById('crmProb').value||50,owner:document.getElementById('crmOwner').value,date:new Date().toISOString().split('T')[0],note:document.getElementById('crmNote').value};
-  state.crm.unshift(entry);saveState();renderCRM();
+  state.crm.unshift(entry);renderCRM();
   document.getElementById('crmModal').classList.remove('open');
   showNotif('顧客を追加しました');
+  if(state.userId){
+    const {data} = await sb.from('crm_contacts').insert({user_id:state.userId,company:entry.company,contact:entry.contact,status:entry.status,amount:entry.amount,prob:entry.prob,owner:entry.owner,date:entry.date,note:entry.note}).select().single();
+    if(data) state.crm[0].id = data.id;
+  }
 }
 
 // ===== TASKS (CALENDAR) =====
@@ -1296,11 +1356,11 @@ function selectDay(dateStr){
     </div>`).join('');
 }
 
-function toggleTask(id){
+async function toggleTask(id){
   state.tasks = state.tasks.map(t=>t.id===id?{...t,status:t.status==='完了'?'未着手':'完了'}:t);
-  saveState();
   if(calState.selected) selectDay(calState.selected);
   renderCalendar();
+  if(state.userId){const task=state.tasks.find(t=>t.id===id);if(task) await sb.from('tasks').update({status:task.status}).eq('id',id);}
 }
 
 function renderCalStats(){
@@ -1338,20 +1398,25 @@ function openTaskModalForDate(dateStr){
   if(dateStr) document.getElementById('taskDue').value = dateStr;
 }
 
-function addTask(){
+async function addTask(){
   const t={id:Date.now(),name:document.getElementById('taskName').value||'新規タスク',priority:document.getElementById('taskPriority').value,due:document.getElementById('taskDue').value||new Date().toISOString().split('T')[0],status:document.getElementById('taskStatus').value,note:document.getElementById('taskNote').value};
-  state.tasks.push(t); saveState(); renderCalendar();
+  state.tasks.push(t); renderCalendar();
   if(t.due) selectDay(t.due);
   document.getElementById('taskModal').classList.remove('open');
   document.getElementById('taskName').value='';
   document.getElementById('taskNote').value='';
   showNotif('タスクを追加しました');
+  if(state.userId){
+    const {data} = await sb.from('tasks').insert({user_id:state.userId,title:t.name,priority:t.priority,due:t.due,status:t.status,note:t.note}).select().single();
+    if(data){const idx=state.tasks.findIndex(x=>x.id===t.id);if(idx!==-1)state.tasks[idx].id=data.id;}
+  }
 }
 
-function deleteTask(id){
-  state.tasks=state.tasks.filter(t=>t.id!==id); saveState(); renderCalendar();
+async function deleteTask(id){
+  state.tasks=state.tasks.filter(t=>t.id!==id); renderCalendar();
   if(calState.selected) selectDay(calState.selected);
   showNotif('タスクを削除しました');
+  if(state.userId) await sb.from('tasks').delete().eq('id',id);
 }
 
 // ===== COACH =====
@@ -1568,18 +1633,22 @@ function showPage(id,el){
 }
 
 // ===== UTILS =====
-function saveState(){localStorage.setItem('sm_reports',JSON.stringify(state.reports));localStorage.setItem('sm_crm',JSON.stringify(state.crm));localStorage.setItem('sm_tasks',JSON.stringify(state.tasks));localStorage.setItem('sm_user',JSON.stringify(state.user));}
+async function saveState(){
+  if(!state.userId) return;
+  await sb.from('profiles').upsert({id:state.userId,name:state.user.name,team:state.user.team,type:state.user.type,type_label:state.user.typeLabel,goals:state.user.goals,sliders:state.sliders});
+}
 function showNotif(msg){const n=document.getElementById('notif');document.getElementById('notifText').textContent=msg;n.classList.add('show');setTimeout(()=>n.classList.remove('show'),2500);}
 
 // ===== BOOT =====
-window.onload=()=>{
-  const savedUser=localStorage.getItem('sm_user');
-  if(savedUser){
-    state.user=JSON.parse(savedUser);
-    const loggedIn=localStorage.getItem('sm_loggedIn');
-    if(loggedIn){doLogin();}
-  }
+window.onload=async()=>{
   document.getElementById('reportDate').value=new Date().toISOString().split('T')[0];
+  const {data:{session}} = await sb.auth.getSession();
+  if(session){
+    await loadUserData(session.user.id);
+    document.getElementById('loginPage').style.display='none';
+    document.getElementById('app').style.display='flex';
+    initApp();
+  }
 };
 </script>
 </body>
