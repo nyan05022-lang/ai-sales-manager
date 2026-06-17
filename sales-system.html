@@ -783,7 +783,7 @@ let state = {
   reports: [],
   crm: [],
   tasks: [],
-  sliders: {rapport:50,hearing:50,deepdive:50,proposal:50,closing:50},
+  sliders: {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0},
   rankTab:'weekly',
   selectedType: 'driver',
   userId: null
@@ -925,7 +925,7 @@ async function loadUserData(userId){
     state.user.type = profile.type||'driver';
     state.user.typeLabel = profile.type_label||'ドライバー型';
     state.user.goals = profile.goals||{sales:500,appo:30,meeting:15,contract:5};
-    if(profile.sliders) state.sliders = profile.sliders;
+    state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
   }
   const {data:reports} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
   state.reports = (reports||[]).map(r=>({id:r.id,date:r.date,call:r.call||0,appo:r.appo||0,meeting:r.meeting||0,contract:r.contract||0,proposal:r.proposal||0,sales:r.sales||0,good:r.good||'',bad:r.bad||'',plan:r.plan||''}));
