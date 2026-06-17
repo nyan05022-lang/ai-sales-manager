@@ -891,6 +891,7 @@ async function completeRegister(){
   const team = regData.team;
   const {data, error} = await sb.auth.signUp({email, password: pass});
   if(error){showNotif('登録失敗: '+error.message);return;}
+  if(!data.user){showNotif('登録失敗: ユーザーが作成されませんでした');return;}
   state.userId = data.user.id;
   state.user.name = name;
   state.user.team = team;
