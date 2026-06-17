@@ -1719,6 +1719,8 @@ function showPage(id,el){
   if(el)el.classList.add('active');
   document.getElementById('pageTitle').textContent=PAGE_TITLES[id];
   if(id==='report')renderReportHistory();
+  if(id==='dashboard')initDashboard();
+  if(id==='profile')initProfile();
 }
 
 // ===== UTILS =====
