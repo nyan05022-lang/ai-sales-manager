@@ -862,12 +862,14 @@ async function doLogin(){
   document.getElementById('app').style.display='flex';
   initApp();
 }
+let regData = {};
 function goToRegisterFlow(){
   const email = document.getElementById('regEmail').value;
   const pass = document.getElementById('regPass').value;
   const name = document.getElementById('regName').value;
   if(!email||!pass||!name){showNotif('全項目を入力してください');return;}
   if(pass.length<6){showNotif('パスワードは6文字以上です');return;}
+  regData = {email, pass, name, team: document.getElementById('regTeam').value};
   document.getElementById('loginPage').style.display='none';
   document.getElementById('registerPage').style.display='block';
 }
@@ -883,10 +885,10 @@ function nextDiagStep(){
   document.getElementById('s3').classList.add('active');
 }
 async function completeRegister(){
-  const email = document.getElementById('regEmail').value;
-  const pass = document.getElementById('regPass').value;
-  const name = document.getElementById('regName').value || 'ユーザー';
-  const team = document.getElementById('regTeam').value;
+  const email = regData.email;
+  const pass = regData.pass;
+  const name = regData.name || 'ユーザー';
+  const team = regData.team;
   const {data, error} = await sb.auth.signUp({email, password: pass});
   if(error){showNotif('登録失敗: '+error.message);return;}
   state.userId = data.user.id;
