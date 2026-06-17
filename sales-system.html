@@ -1374,32 +1374,45 @@ function renderSkillEval(){
   const evalSets = Math.floor(count/10);
   if(evalSets===0){document.getElementById('skillEvalCard').style.display='none';return;}
   document.getElementById('skillEvalCard').style.display='block';
-  const latest10 = skillSessions.slice(0,10);
-  const avg = key=>Math.round(latest10.reduce((s,r)=>s+(r[key]||0),0)/latest10.length);
-  const avgs = {rapport:avg('rapport'),hearing:avg('hearing'),deepdive:avg('deepdive'),proposal:avg('proposal'),closing:avg('closing')};
-  const overall = Math.round(Object.values(avgs).reduce((a,b)=>a+b,0)/5);
-  const weakest = Object.entries(avgs).sort((a,b)=>a[1]-b[1])[0];
-  const strongest = Object.entries(avgs).sort((a,b)=>b[1]-a[1])[0];
-  const weakLabel = CHECKLIST_DEF[weakest[0]].label;
-  const strongLabel = CHECKLIST_DEF[strongest[0]].label;
-  document.getElementById('evalBadge').textContent = `第${evalSets}回評価`;
-  document.getElementById('skillEvalContent').innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
-      ${Object.entries(avgs).map(([k,v])=>`
-        <div style="text-align:center;padding:10px 6px;background:var(--bg3);border-radius:var(--radius)">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">${CHECKLIST_DEF[k].label.replace('力','')}</div>
-          <div style="font-size:20px;font-weight:700;color:${v>=70?'var(--green)':v>=50?'var(--amber)':'var(--red)'}">${v}</div>
-        </div>`).join('')}
-    </div>
-    <div class="ai-box">
-      <div class="ai-box-header"><i class="ti ti-sparkles"></i>10回分のAI評価</div>
-      <p style="font-size:13px;line-height:1.8">
-        総合スコア <strong>${overall}点</strong>。<br>
-        <strong style="color:var(--green)">最も強いスキル：${strongLabel}（${strongest[1]}点）</strong> — この強みを他の場面でも積極的に活用しましょう。<br>
-        <strong style="color:var(--red)">最も弱いスキル：${weakLabel}（${weakest[1]}点）</strong> — 次の10回でこの項目を意識的に改善してください。<br>
-        ${overall>=80?'全体的に非常に高いレベルです。この調子を維持してください。':overall>=60?'バランスよく成長しています。弱点を重点的に強化しましょう。':'基礎スキルの底上げが必要です。特に弱点スキルのチェックリストを毎商談で意識してください。'}
-      </p>
-    </div>`;
+  document.getElementById('evalBadge').textContent = `計${evalSets}回の評価`;
+
+  // 新しい評価が上になるように最新から順に生成
+  let html = '';
+  for(let i=evalSets;i>=1;i--){
+    const group = skillSessions.slice((i-1)*10, i*10);
+    const avg = key=>Math.round(group.reduce((s,r)=>s+(r[key]||0),0)/group.length);
+    const avgs = {rapport:avg('rapport'),hearing:avg('hearing'),deepdive:avg('deepdive'),proposal:avg('proposal'),closing:avg('closing')};
+    const overall = Math.round(Object.values(avgs).reduce((a,b)=>a+b,0)/5);
+    const weakest = Object.entries(avgs).sort((a,b)=>a[1]-b[1])[0];
+    const strongest = Object.entries(avgs).sort((a,b)=>b[1]-a[1])[0];
+    const weakLabel = CHECKLIST_DEF[weakest[0]].label;
+    const strongLabel = CHECKLIST_DEF[strongest[0]].label;
+    const isLatest = i===evalSets;
+    html += `
+      <div style="border:1px solid var(--border);border-radius:var(--radius2);padding:16px;margin-bottom:14px;background:${isLatest?'#f0f8ff':'#fff'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:14px;font-weight:700;color:var(--blue)">第${i}回評価（${(i-1)*10+1}〜${i*10}回目）</span>
+          ${isLatest?'<span class="badge badge-blue">最新</span>':''}
+          <span style="font-size:12px;color:var(--text2)">総合 <strong>${overall}点</strong></span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px">
+          ${Object.entries(avgs).map(([k,v])=>`
+            <div style="text-align:center;padding:8px 4px;background:var(--bg3);border-radius:var(--radius)">
+              <div style="font-size:10px;color:var(--text2);margin-bottom:3px">${CHECKLIST_DEF[k].label.replace('力','')}</div>
+              <div style="font-size:18px;font-weight:700;color:${v>=70?'var(--green)':v>=50?'var(--amber)':'var(--red)'}">${v}</div>
+            </div>`).join('')}
+        </div>
+        <div class="ai-box">
+          <div class="ai-box-header"><i class="ti ti-sparkles"></i>AIフィードバック</div>
+          <p style="font-size:12px;line-height:1.8">
+            <strong style="color:var(--green)">強み：${strongLabel}（${strongest[1]}点）</strong> — この強みをさらに磨きましょう。<br>
+            <strong style="color:var(--red)">改善点：${weakLabel}（${weakest[1]}点）</strong> — 次の10回で集中的に鍛えてください。<br>
+            ${overall>=80?'全体的に非常に高いレベルです。':overall>=60?'バランスよく成長中です。':'基礎スキルの底上げが重要です。'}
+          </p>
+        </div>
+      </div>`;
+  }
+  document.getElementById('skillEvalContent').innerHTML = html;
 }
 function updateTotalScore(){
   const total=Math.round(Object.values(state.sliders).reduce((a,b)=>a+b,0)/SLIDERS_DEF.length);
