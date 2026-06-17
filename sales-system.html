@@ -990,21 +990,27 @@ const SALES_DATA = {
   }
 };
 
+function getMonthReports(){
+  const now = new Date();
+  const prefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  return state.reports.filter(r=>r.date&&r.date.startsWith(prefix));
+}
+
 function initDashboard(){
-  const r = RANKINGS.weekly.slice(0,3);
-  document.getElementById('miniRanking').innerHTML = r.map((p,i)=>`
-    <div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
-      <div class="flex gap-8"><div class="rank-num rank-${i+1}">${i+1}</div><div><div style="font-size:13px;font-weight:500">${p.name}</div><div class="text-xs text-muted">${p.team}</div></div></div>
-      <div style="font-size:14px;font-weight:600;color:var(--green)">¥${p.sales}万</div>
-    </div>`).join('');
+  const monthReports = getMonthReports();
+  const totalSales = monthReports.reduce((s,r)=>s+(r.sales||0),0);
+  const totalAppo = monthReports.reduce((s,r)=>s+(r.appo||0),0);
+  const totalMeeting = monthReports.reduce((s,r)=>s+(r.meeting||0),0);
+  const totalContract = monthReports.reduce((s,r)=>s+(r.contract||0),0);
+  const goals = state.user.goals||{sales:500,appo:30,meeting:15,contract:5};
 
   document.getElementById('kpiProgress').innerHTML = [
-    {label:'売上',val:420,goal:500,unit:'万',color:'var(--green)'},
-    {label:'アポ数',val:24,goal:30,unit:'件',color:'var(--blue)'},
-    {label:'商談数',val:11,goal:15,unit:'件',color:'var(--purple)'},
-    {label:'成約数',val:4,goal:5,unit:'件',color:'var(--amber)'},
+    {label:'売上',val:totalSales,goal:goals.sales,unit:'万',color:'var(--green)'},
+    {label:'アポ数',val:totalAppo,goal:goals.appo,unit:'件',color:'var(--blue)'},
+    {label:'商談数',val:totalMeeting,goal:goals.meeting,unit:'件',color:'var(--purple)'},
+    {label:'成約数',val:totalContract,goal:goals.contract,unit:'件',color:'var(--amber)'},
   ].map(k=>{
-    const pct=Math.round(k.val/k.goal*100);
+    const pct=k.goal>0?Math.round(k.val/k.goal*100):0;
     return `<div style="margin-bottom:10px">
       <div class="flex-between text-sm mb-4"><span>${k.label}</span><span style="font-weight:600">${k.val}${k.unit} <span class="text-muted">/ ${k.goal}${k.unit}</span></span></div>
       <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(pct,100)}%;background:${k.color}"></div></div>
@@ -1012,18 +1018,22 @@ function initDashboard(){
     </div>`;
   }).join('');
 
-  document.getElementById('recentActivity').innerHTML = [
-    {icon:'ti-phone',color:'var(--blue)',text:'架電 45件完了',time:'今日 09:30'},
-    {icon:'ti-calendar-event',color:'var(--green)',text:'アポ獲得 - グローバルソリューションズ',time:'今日 11:00'},
-    {icon:'ti-users',color:'var(--purple)',text:'商談 - テクノフューチャー',time:'昨日 14:00'},
-    {icon:'ti-file-check',color:'var(--amber)',text:'提案書送付 - イノベーション社',time:'昨日 17:30'},
-  ].map(a=>`<div class="timeline-item"><div class="timeline-dot"><i class="ti ${a.icon}" style="color:${a.color};font-size:11px"></i></div><div class="timeline-body"><div style="font-size:13px">${a.text}</div><div class="text-xs text-muted">${a.time}</div></div></div>`).join('');
+  const recentReports = state.reports.slice(0,4);
+  document.getElementById('recentActivity').innerHTML = recentReports.length>0
+    ? recentReports.map(r=>`<div class="timeline-item"><div class="timeline-dot"><i class="ti ti-file-text" style="color:var(--blue);font-size:11px"></i></div><div class="timeline-body"><div style="font-size:13px">${r.date} の日報 — 売上${r.sales}万・アポ${r.appo}件</div><div class="text-xs text-muted">${r.good?r.good.slice(0,30)+'...':''}</div></div></div>`).join('')
+    : '<p class="text-muted text-sm">日報を入力すると活動履歴が表示されます</p>';
+
+  document.getElementById('miniRanking').innerHTML = RANKINGS.weekly.slice(0,3).map((p,i)=>`
+    <div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div class="flex gap-8"><div class="rank-num rank-${i+1}">${i+1}</div><div><div style="font-size:13px;font-weight:500">${p.name}</div><div class="text-xs text-muted">${p.team}</div></div></div>
+      <div style="font-size:14px;font-weight:600;color:var(--green)">¥${p.sales}万</div>
+    </div>`).join('');
 
   document.getElementById('todayTasks').innerHTML = state.tasks.filter(t=>t.status!=='完了').slice(0,3).map(t=>`
     <div class="flex-between" style="padding:7px 0;border-bottom:1px solid var(--border)">
       <div class="flex gap-8"><i class="ti ti-square" style="color:var(--text3)"></i><span style="font-size:13px">${t.name}</span></div>
       <span class="badge ${t.priority==='高'?'badge-red':t.priority==='中'?'badge-amber':'badge-blue'}">${t.priority}</span>
-    </div>`).join('');
+    </div>`).join('') || '<p class="text-muted text-sm">未完了タスクはありません</p>';
 
   renderSalesChart('day');
 }
@@ -1035,8 +1045,39 @@ function switchSalesTab(mode, el){
   renderSalesChart(mode);
 }
 
+function buildRealSalesData(){
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year,month+1,0).getDate();
+  const dayLabels=[],dayData=[],dayTarget=[];
+  const dailyGoal = Math.round((state.user.goals?.sales||500)/daysInMonth);
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    dayLabels.push(`${month+1}/${d}`);
+    const rep=state.reports.find(r=>r.date===ds);
+    dayData.push(rep?rep.sales:0);
+    dayTarget.push(dailyGoal);
+  }
+  const monthLabels=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'].slice(0,month+1);
+  const monthData=[], monthTarget=[];
+  for(let m=0;m<=month;m++){
+    const prefix=`${year}-${String(m+1).padStart(2,'0')}`;
+    const total=state.reports.filter(r=>r.date&&r.date.startsWith(prefix)).reduce((s,r)=>s+(r.sales||0),0);
+    monthData.push(total);
+    monthTarget.push(state.user.goals?.sales||500);
+  }
+  const totalDay=dayData.reduce((a,b)=>a+b,0);
+  const totalMonth=monthData.reduce((a,b)=>a+b,0);
+  return {
+    day:{labels:dayLabels,data:dayData,target:dayTarget,total:totalDay,prev:Math.round(totalDay*0.9)||1},
+    month:{labels:monthLabels,data:monthData,target:monthTarget,total:totalMonth,prev:Math.round(totalMonth*0.9)||1}
+  };
+}
+
 function renderSalesChart(mode){
-  const d = SALES_DATA[mode];
+  const REAL = buildRealSalesData();
+  const d = REAL[mode];
   const isDay = mode==='day';
   const diff = d.total - d.prev;
   const diffPct = Math.round(diff/d.prev*100);
@@ -1621,12 +1662,19 @@ function initProfile(){
     </div>
     <div class="ai-box mt-12"><div class="ai-box-header"><i class="ti ti-sparkles"></i>AIアドバイス</div><p style="font-size:13px;line-height:1.7">${p.advice}</p></div>`;
 
+  const mReports = getMonthReports();
+  const mSales = mReports.reduce((s,r)=>s+(r.sales||0),0);
+  const mAppo = mReports.reduce((s,r)=>s+(r.appo||0),0);
+  const mCall = mReports.reduce((s,r)=>s+(r.call||0),0);
+  const mContract = mReports.reduce((s,r)=>s+(r.contract||0),0);
+  const appoRate = mCall>0?Math.round(mAppo/mCall*100):0;
+  const contractRate = mAppo>0?Math.round(mContract/mAppo*100):0;
   document.getElementById('profileStats').innerHTML=[
-    {label:'今月売上',val:'¥420万',change:'+12%',up:true},
-    {label:'アポ数',val:'24件',change:'+4件',up:true},
-    {label:'成約率',val:'16.7%',change:'-2pt',up:false},
-    {label:'KPIスコア',val:'88pt',change:'+5pt',up:true},
-  ].map(s=>`<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="text-muted text-sm">${s.label}</span><div class="flex gap-8"><span style="font-weight:600">${s.val}</span><span style="font-size:11px;color:${s.up?'var(--green)':'var(--red)'}">${s.change}</span></div></div>`).join('');
+    {label:'今月売上',val:`¥${mSales}万`},
+    {label:'アポ数',val:`${mAppo}件`},
+    {label:'アポ率',val:`${appoRate}%`},
+    {label:'成約率',val:`${contractRate}%`},
+  ].map(s=>`<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="text-muted text-sm">${s.label}</span><span style="font-weight:600">${s.val}</span></div>`).join('');
 
   document.getElementById('managerFeedback').innerHTML=[
     {date:'2026-06-10',from:'田中 マネージャー',text:'今月のアポ率が大幅に改善されています。特に電話でのファーストトーク改善が数字に表れています。クロージングの練習を続けてください。'},
