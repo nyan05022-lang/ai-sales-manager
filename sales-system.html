@@ -1494,10 +1494,11 @@ async function initRanking(){
   const {data:profiles} = await sb.from('profiles').select('id,name,team,goals');
   const now = new Date();
   const prefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const {data:reports} = await sb.from('daily_reports').select('user_id,sales,appo,meeting,contract,date').gte('date', prefix+'-01');
+  const {data:reports, error:repErr} = await sb.from('daily_reports').select('user_id,sales,appo,meeting,contract,date');
+  if(repErr) console.error('ranking reports error:', repErr);
   if(!profiles||profiles.length===0){renderRanking();return;}
   const rankData = profiles.map((p,i)=>{
-    const myReports = (reports||[]).filter(r=>r.user_id===p.id);
+    const myReports = (reports||[]).filter(r=>r.user_id===p.id && (!r.date || r.date.startsWith(prefix)));
     const sales = myReports.reduce((s,r)=>s+(r.sales||0),0);
     const appo = myReports.reduce((s,r)=>s+(r.appo||0),0);
     const contract = myReports.reduce((s,r)=>s+(r.contract||0),0);
