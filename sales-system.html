@@ -932,9 +932,10 @@ async function loadUserData(userId){
   if(repLoadErr) console.error('日報読込エラー:', repLoadErr);
   console.log('日報取得件数:', (reports||[]).length, 'userId:', userId);
   state.reports = (reports||[]).map(r=>({id:r.id,date:r.date,calls:r.calls||0,appo:r.appo||0,meeting:r.meeting||0,contract:r.contract||0,proposal:r.proposal||0,sales:r.sales||0,good:r.good||'',bad:r.bad||'',plan:r.plan||''}));
-  const {data:crm} = await sb.from('crm_contacts').select('*').eq('user_id',userId).order('created_at',{ascending:false});
+  const {data:crm} = await sb.from('crm_contacts').select('*').eq('user_id',userId);
   state.crm = (crm&&crm.length>0)?crm.map(c=>({id:c.id,company:c.company,contact:c.contact,status:c.status,amount:c.amount,prob:c.prob,owner:c.owner,date:c.date,note:c.note})):defaultCRM();
-  const {data:tasks} = await sb.from('tasks').select('*').eq('user_id',userId).order('created_at',{ascending:false});
+  const {data:tasks,error:taskErr} = await sb.from('tasks').select('*').eq('user_id',userId);
+  if(taskErr) console.error('tasks load error:', taskErr);
   state.tasks = (tasks&&tasks.length>0)?tasks.map(t=>({id:t.id,name:t.title,priority:t.priority,due:t.due,status:t.status,note:t.note||''})):defaultTasks();
 }
 
