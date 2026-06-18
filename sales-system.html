@@ -1434,19 +1434,79 @@ function renderRadar(){
 }
 function generateKpiAI(){
   document.getElementById('kpiSpinner').style.display='inline-block';
-  document.getElementById('kpiAIText').textContent='分析中...';
+  document.getElementById('kpiAIText').innerHTML='<span style="color:var(--text2)">分析中...</span>';
   setTimeout(()=>{
     document.getElementById('kpiSpinner').style.display='none';
-    const s=state.sliders;
-    const weakKey=Object.entries(s).sort((a,b)=>a[1]-b[1])[0];
-    const strongKey=Object.entries(s).sort((a,b)=>b[1]-a[1])[0];
-    const weakLabel=SLIDERS_DEF.find(d=>d.key===weakKey[0]).label;
-    const strongLabel=SLIDERS_DEF.find(d=>d.key===strongKey[0]).label;
-    document.getElementById('kpiAIText').textContent=`${strongLabel}（${strongKey[1]}点）が最大の強みです。特に提案フェーズでこの強みを活かすことで成約率向上が期待できます。一方、${weakLabel}（${weakKey[1]}点）が最も改善余地のある項目です。次回の商談では${weakLabel}を意識し、具体的な改善行動を実践してみてください。チーム平均と比較すると、総合スコアは上位${s.closing<60?'40%':'25%'}に位置しています。継続的な取り組みでさらなる成長が見込めます。`;
-    const actions=[
-      `${weakLabel}：商談開始5分はクロジングを考えず顧客の話を傾聴する`,
-      `${strongLabel}：強みをチームにシェアしてメンター役を担う`,
-      '週1回の商談録音レビューでself-feedbackを実施',
+    const s = state.sliders;
+    const entries = Object.entries(s);
+    const sorted = [...entries].sort((a,b)=>b[1]-a[1]);
+    const weakEntries = [...entries].sort((a,b)=>a[1]-b[1]);
+    const getLabel = key => SLIDERS_DEF.find(d=>d.key===key).label;
+    const getDesc = key => SLIDERS_DEF.find(d=>d.key===key).desc;
+    const total = Math.round(entries.reduce((s,[,v])=>s+v,0)/entries.length);
+
+    // 過去セッション平均との比較
+    const pastAvg = {};
+    if(skillSessions.length>0){
+      ['rapport','hearing','deepdive','proposal','closing'].forEach(k=>{
+        pastAvg[k] = Math.round(skillSessions.reduce((s,r)=>s+(r[k]||0),0)/skillSessions.length);
+      });
+    }
+
+    // 各指標の詳細評価
+    const details = entries.map(([k,v])=>{
+      const label = getLabel(k);
+      const level = v>=80?'優秀':v>=60?'標準':v>=40?'要強化':'要改善';
+      const color = v>=80?'var(--green)':v>=60?'var(--blue)':v>=40?'var(--amber)':'var(--red)';
+      const trend = pastAvg[k]!=null ? (v>pastAvg[k]?`▲${v-pastAvg[k]}pt向上`:`▼${pastAvg[k]-v}pt低下`) : '';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px;font-weight:500">${label}</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${trend?`<span style="font-size:11px;color:var(--text2)">${trend}</span>`:''}
+          <span style="font-size:13px;font-weight:700;color:${color}">${v}点 <span style="font-size:10px;font-weight:400">(${level})</span></span>
+        </div>
+      </div>`;
+    }).join('');
+
+    // 強み・弱みの詳細アドバイス
+    const strong1 = sorted[0], strong2 = sorted[1];
+    const weak1 = weakEntries[0], weak2 = weakEntries[1];
+
+    const adviceMap = {
+      rapport: ['商談開始前に顧客企業のニュースや業界動向をリサーチし、最初の5分でその話題に触れることで一気に距離が縮まります。', '相手の話し方のテンポに意識的に合わせ、名前を会話中に2〜3回自然に呼ぶことでラポールが深まります。'],
+      hearing: ['「なぜ今この課題が重要なのですか？」と背景を掘り下げる質問を1商談に最低3回入れましょう。表面的な要望ではなく本音のニーズを引き出せます。', 'ヒアリング中は手を止めてメモを取り、「今おっしゃった〇〇とはどういう意味ですか？」と確認質問を使うと顧客の信頼感が増します。'],
+      deepdive: ['SPIN質問法（状況・問題・示唆・解決）を活用し、顧客自身が課題の重大さを認識するよう誘導しましょう。顧客が「確かにこれは大問題だ」と思ったタイミングが提案の黄金タイミングです。', '「もし解決できなかった場合、1年後どうなると思いますか？」という示唆質問で課題の緊迫感を高めましょう。'],
+      proposal: ['提案は必ず顧客の言葉を引用して始めましょう。「先ほど〇〇とおっしゃっていましたが、まさにその課題に対して…」と繋げることで納得感が格段に上がります。', 'ROI（投資対効果）を数字で示しましょう。「導入後3ヶ月で月〇〇万円のコスト削減が見込めます」という具体的な数字が意思決定を後押しします。'],
+      closing: ['クロージングは「押す」のではなく「確認する」感覚で。「今日お話した内容でご不明点はありますか？」から「では次のステップとして…」へ自然に移行しましょう。', '決裁者が同席していない場合、「社内でご検討いただく際に必要な資料を事前に準備します。いつ頃ご報告いただけますか？」と具体的な期日を設定しましょう。'],
+    };
+
+    const weakAdvice1 = adviceMap[weak1[0]][0];
+    const weakAdvice2 = adviceMap[weak2[0]][0];
+    const strongAdvice = adviceMap[strong1[0]][1];
+
+    const sessionInfo = skillSessions.length>0
+      ? `過去${skillSessions.length}回の商談データと比較すると、`
+      : '初回の商談評価として、';
+
+    document.getElementById('kpiAIText').innerHTML = `
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">📊 今回の商談スコア詳細</div>
+        ${details}
+        <div style="margin-top:8px;font-size:13px;font-weight:700">総合スコア: <span style="color:var(--blue)">${total}点</span></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">💡 AI分析コメント</div>
+        <div style="font-size:13px;line-height:1.9;color:var(--text)">
+          ${sessionInfo}<strong>${getLabel(strong1[0])}（${strong1[1]}点）</strong>が最大の強みです。${strongAdvice}<br><br>
+          最も強化が必要な<strong>${getLabel(weak1[0])}（${weak1[1]}点）</strong>については、${weakAdvice1}<br><br>
+          次に注力すべき<strong>${getLabel(weak2[0])}（${weak2[1]}点）</strong>は、${weakAdvice2}
+        </div>
+      </div>`;
+
+    const actions = [
+      `【最優先】${getLabel(weak1[0])}強化：${adviceMap[weak1[0]][0].slice(0,40)}…`,
+      `【継続】${getLabel(strong1[0])}の強みをさらに伸ばす：${adviceMap[strong1[0]][0].slice(0,40)}…`,
+      `【習慣化】毎商談後にこのチェックリストを記録し、スコア推移を確認する`,
     ];
     document.getElementById('kpiActionList').innerHTML=actions.map((a,i)=>`<div class="flex gap-8" style="margin-bottom:8px"><div style="width:20px;height:20px;border-radius:50%;background:var(--blue2);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div><div style="font-size:13px">${a}</div></div>`).join('');
     document.getElementById('kpiActions').style.display='block';
