@@ -631,14 +631,14 @@ tr:hover td{background:var(--bg3)}
             <div class="text-xs text-muted">/ 100点</div>
           </div>
           <div class="kpi-card" style="text-align:center">
-            <div class="kpi-label">レジリエンス</div>
-            <div class="kpi-val" style="color:var(--teal)" id="mindResilience">--</div>
-            <div class="progress-bar mt-8"><div class="progress-fill" id="mindResilienceBar" style="width:0%;background:var(--teal)"></div></div>
+            <div class="kpi-label">記録回数</div>
+            <div class="kpi-val" style="color:var(--teal)" id="mindCount">0</div>
+            <div class="text-xs text-muted">件</div>
           </div>
           <div class="kpi-card" style="text-align:center">
-            <div class="kpi-label">主体性</div>
-            <div class="kpi-val" style="color:var(--green)" id="mindAgency">--</div>
-            <div class="progress-bar mt-8"><div class="progress-fill" id="mindAgencyBar" style="width:0%;background:var(--green)"></div></div>
+            <div class="kpi-label">平均気分</div>
+            <div class="kpi-val" style="color:var(--green)" id="mindAvgMood">--</div>
+            <div class="text-xs text-muted">/ 5</div>
           </div>
           <div class="kpi-card" style="text-align:center">
             <div class="kpi-label">バーンアウトリスク</div>
@@ -1946,10 +1946,10 @@ function updateMindScore(){
   document.getElementById('mindScoreVal').textContent = score;
   document.getElementById('mindBurnout').textContent = score>=80?'低':score>=60?'中':'高';
   document.getElementById('mindBurnoutLabel').textContent = score>=80?'健全な状態':score>=60?'要注意':'要休息';
-  const r = document.getElementById('mindResilience');
-  const a = document.getElementById('mindAgency');
-  if(r){ r.textContent = resilience; document.getElementById('mindResilienceBar').style.width=resilience+'%'; }
-  if(a){ a.textContent = agency; document.getElementById('mindAgencyBar').style.width=agency+'%'; }
+  const mc = document.getElementById('mindCount');
+  const ma = document.getElementById('mindAvgMood');
+  if(mc) mc.textContent = mindJournals.length;
+  if(ma) ma.textContent = (avgMood).toFixed(1);
 }
 
 // ===== PROFILE =====
