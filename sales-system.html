@@ -703,7 +703,7 @@ tr:hover td{background:var(--bg3)}
           </div>
           <div>
             <div class="card mb-16">
-              <div class="flex-between mb-12"><h3>管理者フィードバック</h3><span class="badge badge-amber">最新</span></div>
+              <div class="flex-between mb-12"><h3>管理者フィードバック</h3><button class="btn-ghost btn-sm" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 追加</button></div>
               <div id="managerFeedback"></div>
             </div>
             <div class="card">
@@ -714,6 +714,19 @@ tr:hover td{background:var(--bg3)}
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- FEEDBACK MODAL -->
+<div class="modal-overlay" id="feedbackModal">
+  <div class="modal">
+    <div class="flex-between mb-16"><h3>管理者フィードバックを追加</h3><i class="ti ti-x" style="cursor:pointer;font-size:18px" onclick="document.getElementById('feedbackModal').classList.remove('open')"></i></div>
+    <div class="form-group"><label>フィードバック者名</label><input type="text" id="fbFrom" placeholder="田中 マネージャー"></div>
+    <div class="form-group"><label>内容</label><textarea id="fbText" rows="4" placeholder="フィードバック内容を入力..."></textarea></div>
+    <div class="flex gap-8 mt-16">
+      <button class="btn-primary" onclick="saveFeedback()">保存</button>
+      <button class="btn-ghost" onclick="document.getElementById('feedbackModal').classList.remove('open')">キャンセル</button>
     </div>
   </div>
 </div>
@@ -2060,10 +2073,7 @@ function initProfile(){
     {label:'成約率',val:`${contractRate}%`},
   ].map(s=>`<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="text-muted text-sm">${s.label}</span><span style="font-weight:600">${s.val}</span></div>`).join('');
 
-  document.getElementById('managerFeedback').innerHTML=[
-    {date:'2026-06-10',from:'田中 マネージャー',text:'今月のアポ率が大幅に改善されています。特に電話でのファーストトーク改善が数字に表れています。クロージングの練習を続けてください。'},
-    {date:'2026-05-28',from:'田中 マネージャー',text:'先週の提案プレゼンは非常に完成度が高かった。顧客の課題に対して具体的な数値を用いた提案は説得力がありました。'},
-  ].map(f=>`<div style="padding:12px 0;border-bottom:1px solid var(--border)"><div class="flex-between mb-6"><span class="text-sm" style="color:var(--blue)">${f.from}</span><span class="text-xs text-muted">${f.date}</span></div><p style="font-size:13px;line-height:1.7;color:var(--text)">${f.text}</p></div>`).join('');
+  loadManagerFeedback();
 
   // 過去6ヶ月の月別売上・アポ数を実データから集計
   const now = new Date();
@@ -2078,6 +2088,48 @@ function initProfile(){
   }
   if(chartGrowth){chartGrowth.destroy();}
   chartGrowth=new Chart(document.getElementById('chartGrowth').getContext('2d'),{type:'line',data:{labels:monthLabels,datasets:[{label:'売上（万円）',data:salesData,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.08)',tension:.4,fill:true,yAxisID:'y'},{label:'アポ数',data:appoData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}},y:{position:'left',ticks:{color:'#a0aabe',font:{size:10},callback:v=>v+'万'},grid:{color:'rgba(255,255,255,.04)'}},y1:{position:'right',ticks:{color:'#a0aabe',font:{size:10}},grid:{drawOnChartArea:false}}}}});
+}
+
+// ===== MANAGER FEEDBACK =====
+function openFeedbackModal(){
+  document.getElementById('fbFrom').value='';
+  document.getElementById('fbText').value='';
+  document.getElementById('feedbackModal').classList.add('open');
+}
+async function saveFeedback(){
+  const from_name = document.getElementById('fbFrom').value.trim();
+  const text = document.getElementById('fbText').value.trim();
+  if(!text){showNotif('内容を入力してください');return;}
+  const date = new Date().toISOString().split('T')[0];
+  if(state.userId){
+    const {error} = await sb.from('manager_feedback').insert({user_id:state.userId,from_name,text,date});
+    if(error){showNotif('保存失敗: '+error.message);return;}
+  }
+  document.getElementById('feedbackModal').classList.remove('open');
+  showNotif('フィードバックを保存しました');
+  loadManagerFeedback();
+}
+async function loadManagerFeedback(){
+  const el = document.getElementById('managerFeedback');
+  if(!el) return;
+  if(!state.userId){el.innerHTML='<p class="text-muted text-sm">ログイン後に表示されます</p>';return;}
+  const {data} = await sb.from('manager_feedback').select('*').eq('user_id',state.userId).order('created_at',{ascending:false});
+  const list = data||[];
+  el.innerHTML = list.length===0
+    ? '<p class="text-muted text-sm">まだフィードバックはありません</p>'
+    : list.map(f=>`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+        <div class="flex-between mb-6">
+          <span class="text-sm" style="color:var(--blue)">${f.from_name||'管理者'}</span>
+          <div class="flex gap-8"><span class="text-xs text-muted">${f.date}</span>
+          <button onclick="deleteFeedback('${f.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px"><i class="ti ti-trash"></i></button></div>
+        </div>
+        <p style="font-size:13px;line-height:1.7;color:var(--text)">${f.text}</p>
+      </div>`).join('');
+}
+async function deleteFeedback(id){
+  await sb.from('manager_feedback').delete().eq('id',id);
+  loadManagerFeedback();
+  showNotif('削除しました');
 }
 
 // ===== GOAL EDIT =====
