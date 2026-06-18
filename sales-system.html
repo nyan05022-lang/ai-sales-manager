@@ -1035,17 +1035,16 @@ function initDashboard(){
     ? recentReports.map(r=>`<div class="timeline-item"><div class="timeline-dot"><i class="ti ti-file-text" style="color:var(--blue);font-size:11px"></i></div><div class="timeline-body"><div style="font-size:13px">${r.date} の日報 — 売上${r.sales}万・アポ${r.appo}件</div><div class="text-xs text-muted">${r.good?r.good.slice(0,30)+'...':''}</div></div></div>`).join('')
     : '<p class="text-muted text-sm">日報を入力すると活動履歴が表示されます</p>';
 
-  document.getElementById('miniRanking').innerHTML = RANKINGS.weekly.slice(0,3).map((p,i)=>`
-    <div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
-      <div class="flex gap-8"><div class="rank-num rank-${i+1}">${i+1}</div><div><div style="font-size:13px;font-weight:500">${p.name}</div><div class="text-xs text-muted">${p.team}</div></div></div>
-      <div style="font-size:14px;font-weight:600;color:var(--green)">¥${p.sales}万</div>
-    </div>`).join('');
+  const rankList = (state._rankData||[]).slice(0,3);
+  document.getElementById('miniRanking').innerHTML = rankList.length>0
+    ? rankList.map((p,i)=>).join('')
+    : '<p class="text-muted text-sm">ランキングデータを読み込み中...</p>';
 
-  document.getElementById('todayTasks').innerHTML = state.tasks.filter(t=>t.status!=='完了').slice(0,3).map(t=>`
-    <div class="flex-between" style="padding:7px 0;border-bottom:1px solid var(--border)">
-      <div class="flex gap-8"><i class="ti ti-square" style="color:var(--text3)"></i><span style="font-size:13px">${t.name}</span></div>
-      <span class="badge ${t.priority==='高'?'badge-red':t.priority==='中'?'badge-amber':'badge-blue'}">${t.priority}</span>
-    </div>`).join('') || '<p class="text-muted text-sm">未完了タスクはありません</p>';
+  const today = new Date().toISOString().split('T')[0];
+  const todayTaskList = state.tasks.filter(t=>t.status!=='完了'&&(!t.due||t.due<=today));
+  document.getElementById('todayTasks').innerHTML = todayTaskList.length>0
+    ? todayTaskList.slice(0,5).map(t=>).join('')
+    : '<p class="text-muted text-sm">本日のタスクはありません</p>';
 
   renderSalesChart('day');
 }
@@ -1682,6 +1681,12 @@ function selectDay(dateStr){
     </div>`).join('');
 }
 
+async function dashToggleTask(id,cb){
+  state.tasks=state.tasks.map(t=>t.id===id?{...t,status:'完了'}:t);
+  cb.disabled=true;
+  if(state.userId) await sb.from('tasks').update({status:'完了'}).eq('id',id);
+  initDashboard();
+}
 async function toggleTask(id){
   state.tasks = state.tasks.map(t=>t.id===id?{...t,status:t.status==='完了'?'未着手':'完了'}:t);
   if(calState.selected) selectDay(calState.selected);
