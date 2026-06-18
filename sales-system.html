@@ -2047,8 +2047,19 @@ function initProfile(){
     {date:'2026-05-28',from:'田中 マネージャー',text:'先週の提案プレゼンは非常に完成度が高かった。顧客の課題に対して具体的な数値を用いた提案は説得力がありました。'},
   ].map(f=>`<div style="padding:12px 0;border-bottom:1px solid var(--border)"><div class="flex-between mb-6"><span class="text-sm" style="color:var(--blue)">${f.from}</span><span class="text-xs text-muted">${f.date}</span></div><p style="font-size:13px;line-height:1.7;color:var(--text)">${f.text}</p></div>`).join('');
 
+  // 過去6ヶ月の月別売上・アポ数を実データから集計
+  const now = new Date();
+  const monthLabels=[], salesData=[], appoData=[];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const prefix = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    monthLabels.push(`${d.getMonth()+1}月`);
+    const reps = state.reports.filter(r=>r.date&&r.date.startsWith(prefix));
+    salesData.push(reps.reduce((s,r)=>s+(r.sales||0),0));
+    appoData.push(reps.reduce((s,r)=>s+(r.appo||0),0));
+  }
   if(chartGrowth){chartGrowth.destroy();}
-  chartGrowth=new Chart(document.getElementById('chartGrowth').getContext('2d'),{type:'line',data:{labels:['1月','2月','3月','4月','5月','6月'],datasets:[{label:'売上（万円）',data:[280,310,295,380,400,420],borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.08)',tension:.4,fill:true,yAxisID:'y'},{label:'KPIスコア',data:[72,74,76,80,84,88],borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}},y:{position:'left',ticks:{color:'#a0aabe',font:{size:10},callback:v=>v+'万'},grid:{color:'rgba(255,255,255,.04)'}},y1:{position:'right',ticks:{color:'#a0aabe',font:{size:10}},grid:{drawOnChartArea:false}}}}});
+  chartGrowth=new Chart(document.getElementById('chartGrowth').getContext('2d'),{type:'line',data:{labels:monthLabels,datasets:[{label:'売上（万円）',data:salesData,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.08)',tension:.4,fill:true,yAxisID:'y'},{label:'アポ数',data:appoData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}},y:{position:'left',ticks:{color:'#a0aabe',font:{size:10},callback:v=>v+'万'},grid:{color:'rgba(255,255,255,.04)'}},y1:{position:'right',ticks:{color:'#a0aabe',font:{size:10}},grid:{drawOnChartArea:false}}}}});
 }
 
 // ===== PROFILE EDIT =====
