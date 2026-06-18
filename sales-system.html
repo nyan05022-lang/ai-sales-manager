@@ -510,7 +510,7 @@ tr:hover td{background:var(--bg3)}
             <div class="flex gap-8"><input type="text" placeholder="顧客名・会社名で検索..." style="width:220px" oninput="filterCRM(this.value)"><select style="width:140px"><option>すべてのステータス</option><option>リード</option><option>商談中</option><option>提案済</option><option>受注</option><option>失注</option></select></div>
           </div>
           <table id="crmTable">
-            <thead><tr><th>会社名</th><th>担当者</th><th>ステータス</th><th>売上予測</th><th>確度</th><th>最終接触</th><th>担当</th></tr></thead>
+            <thead><tr><th>会社名</th><th>担当者</th><th>ステータス</th><th>売上予測</th><th>確度</th><th>最終接触</th><th>担当</th><th></th></tr></thead>
             <tbody id="crmBody"></tbody>
           </table>
         </div>
@@ -1576,9 +1576,16 @@ function renderCRM(filter=''){
       <td><div class="progress-bar" style="width:60px;display:inline-block"><div class="progress-fill" style="width:${c.prob}%;background:${c.prob>=70?'var(--green)':c.prob>=40?'var(--amber)':'var(--red)'}"></div></div> <span class="text-xs text-muted">${c.prob}%</span></td>
       <td class="text-muted">${c.date}</td>
       <td>${c.owner}</td>
+      <td><button onclick="deleteCRM(${c.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0"><i class="ti ti-trash"></i></button></td>
     </tr>`).join('');
 }
 function filterCRM(v){renderCRM(v);}
+async function deleteCRM(id){
+  state.crm=state.crm.filter(c=>c.id!==id);
+  renderCRM();updateCRMStats();
+  showNotif('顧客を削除しました');
+  if(state.userId) await sb.from('crm_contacts').delete().eq('id',id);
+}
 async function addCRMEntry(){
   const entry={id:Date.now(),company:document.getElementById('crmCompany').value||'新規顧客',contact:document.getElementById('crmContact').value||'ご担当者様',status:document.getElementById('crmStatus').value,amount:+document.getElementById('crmAmount').value||0,prob:+document.getElementById('crmProb').value||50,owner:document.getElementById('crmOwner').value,date:new Date().toISOString().split('T')[0],note:document.getElementById('crmNote').value};
   state.crm.unshift(entry);renderCRM();
