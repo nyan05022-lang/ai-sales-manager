@@ -1182,14 +1182,15 @@ async function saveReport(){
   const r={id:Date.now(),date:document.getElementById('reportDate').value,call:+document.getElementById('rCall').value,appo:+document.getElementById('rAppo').value,meeting:+document.getElementById('rMeeting').value,contract:+document.getElementById('rContract').value,proposal:+document.getElementById('rProposal').value,sales:+document.getElementById('rSales').value,good:document.getElementById('rGood').value,bad:document.getElementById('rBad').value,plan:document.getElementById('rPlan').value};
   state.reports.unshift(r);
   if(state.userId){
-    const {data} = await sb.from('daily_reports').insert({user_id:state.userId,date:r.date,call:r.call,appo:r.appo,meeting:r.meeting,contract:r.contract,proposal:r.proposal,sales:r.sales,good:r.good,bad:r.bad,plan:r.plan}).select().single();
+    const {data, error} = await sb.from('daily_reports').insert({user_id:state.userId,date:r.date,call:r.call,appo:r.appo,meeting:r.meeting,contract:r.contract,proposal:r.proposal,sales:r.sales,good:r.good,bad:r.bad,plan:r.plan}).select().single();
+    if(error){console.error('日報保存エラー:',error);showNotif('⚠️ 保存失敗: '+error.message);return;}
     if(data) state.reports[0].id = data.id;
   }
   renderReportHistory();
   const appoRate=r.call>0?Math.round(r.appo/r.call*100):0;
   const ai = generateReportAI(r,appoRate);
   document.getElementById('reportAI').textContent=ai;
-  showNotif('日報を保存しました');
+  showNotif('日報を保存しました（Supabase同期済み）');
 }
 function generateReportAI(r,rate){
   const msgs=[
