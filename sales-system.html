@@ -931,7 +931,7 @@ async function loadUserData(userId){
   const {data:reports, error:repLoadErr} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
   if(repLoadErr) console.error('日報読込エラー:', repLoadErr);
   console.log('日報取得件数:', (reports||[]).length, 'userId:', userId);
-  state.reports = (reports||[]).map(r=>({id:r.id,date:r.date,call:r.call||0,appo:r.appo||0,meeting:r.meeting||0,contract:r.contract||0,proposal:r.proposal||0,sales:r.sales||0,good:r.good||'',bad:r.bad||'',plan:r.plan||''}));
+  state.reports = (reports||[]).map(r=>({id:r.id,date:r.date,calls:r.calls||0,appo:r.appo||0,meeting:r.meeting||0,contract:r.contract||0,proposal:r.proposal||0,sales:r.sales||0,good:r.good||'',bad:r.bad||'',plan:r.plan||''}));
   const {data:crm} = await sb.from('crm_contacts').select('*').eq('user_id',userId).order('created_at',{ascending:false});
   state.crm = (crm&&crm.length>0)?crm.map(c=>({id:c.id,company:c.company,contact:c.contact,status:c.status,amount:c.amount,prob:c.prob,owner:c.owner,date:c.date,note:c.note})):defaultCRM();
   const {data:tasks} = await sb.from('tasks').select('*').eq('user_id',userId).order('created_at',{ascending:false});
@@ -1181,22 +1181,22 @@ function renderSalesChart(mode){
 
 // ===== REPORT =====
 async function saveReport(){
-  const r={id:Date.now(),date:document.getElementById('reportDate').value,call:+document.getElementById('rCall').value,appo:+document.getElementById('rAppo').value,meeting:+document.getElementById('rMeeting').value,contract:+document.getElementById('rContract').value,proposal:+document.getElementById('rProposal').value,sales:+document.getElementById('rSales').value,good:document.getElementById('rGood').value,bad:document.getElementById('rBad').value,plan:document.getElementById('rPlan').value};
+  const r={id:Date.now(),date:document.getElementById('reportDate').value,calls:+document.getElementById('rCall').value,appo:+document.getElementById('rAppo').value,meeting:+document.getElementById('rMeeting').value,contract:+document.getElementById('rContract').value,proposal:+document.getElementById('rProposal').value,sales:+document.getElementById('rSales').value,good:document.getElementById('rGood').value,bad:document.getElementById('rBad').value,plan:document.getElementById('rPlan').value};
   state.reports.unshift(r);
   if(state.userId){
-    const {data, error} = await sb.from('daily_reports').insert({user_id:state.userId,date:r.date,call:r.call,appo:r.appo,meeting:r.meeting,contract:r.contract,proposal:r.proposal,sales:r.sales,good:r.good,bad:r.bad,plan:r.plan}).select().single();
+    const {data, error} = await sb.from('daily_reports').insert({user_id:state.userId,date:r.date,calls:r.calls,appo:r.appo,meeting:r.meeting,contract:r.contract,proposal:r.proposal,sales:r.sales,good:r.good,bad:r.bad,plan:r.plan}).select().single();
     if(error){console.error('日報保存エラー:',error);showNotif('⚠️ 保存失敗: '+error.message);return;}
     if(data) state.reports[0].id = data.id;
   }
   renderReportHistory();
-  const appoRate=r.call>0?Math.round(r.appo/r.call*100):0;
+  const appoRate=r.calls>0?Math.round(r.appo/r.calls*100):0;
   const ai = generateReportAI(r,appoRate);
   document.getElementById('reportAI').textContent=ai;
   showNotif('日報を保存しました（Supabase同期済み）');
 }
 function generateReportAI(r,rate){
   const msgs=[
-    `架電${r.call}件からアポ${r.appo}件（アポ率${rate}%）は${rate>=10?'非常に優秀':'標準的'}な成果です。${r.good.length>10?'振り返りに具体性があり、成長への意識が高い点が素晴らしいです。':'振り返りをより具体的に記述すると、翌日の改善につながります。'}`,
+    `架電${r.calls}件からアポ${r.appo}件（アポ率${rate}%）は${rate>=10?'非常に優秀':'標準的'}な成果です。${r.good.length>10?'振り返りに具体性があり、成長への意識が高い点が素晴らしいです。':'振り返りをより具体的に記述すると、翌日の改善につながります。'}`,
     `本日の成約${r.contract}件・売上${r.sales}万円を達成されました。${r.bad.includes('クロージング')?'クロージングタイミングの改善意識は正しい方向性です。次回は信頼構築後に自然な形でクロージングに移行してみてください。':'改善点の認識が明確で素晴らしいです。'}明日の${r.plan.slice(0,15)}...の計画を確実に実行しましょう。`,
     `アポ率${rate}%は${rate>=12?'業界トップクラス':rate>=8?'平均以上':'改善の余地あり'}です。${r.good}という点を継続しながら、${r.bad}という課題に取り組みましょう。`,
   ];
@@ -1206,7 +1206,7 @@ function renderReportHistory(){
   document.getElementById('reportHistory').innerHTML=state.reports.slice(0,5).map(r=>`
     <div style="padding:10px 0;border-bottom:1px solid var(--border)">
       <div class="flex-between"><span style="font-size:13px;font-weight:500">${r.date}</span><span class="badge badge-green">売上 ${r.sales}万</span></div>
-      <div class="flex gap-16 mt-8" style="font-size:11px;color:var(--text2)"><span>架電 ${r.call}</span><span>アポ ${r.appo}</span><span>商談 ${r.meeting}</span><span>成約 ${r.contract}</span></div>
+      <div class="flex gap-16 mt-8" style="font-size:11px;color:var(--text2)"><span>架電 ${r.calls}</span><span>アポ ${r.appo}</span><span>商談 ${r.meeting}</span><span>成約 ${r.contract}</span></div>
     </div>`).join('') || '<p class="text-muted text-sm">まだ日報がありません</p>';
 }
 
@@ -1734,7 +1734,7 @@ function initCoach(){
   const mReports = getMonthReports();
   const totalSales = mReports.reduce((s,r)=>s+(r.sales||0),0);
   const totalAppo = mReports.reduce((s,r)=>s+(r.appo||0),0);
-  const totalCall = mReports.reduce((s,r)=>s+(r.call||0),0);
+  const totalCall = mReports.reduce((s,r)=>s+(r.calls||0),0);
   const totalContract = mReports.reduce((s,r)=>s+(r.contract||0),0);
   const goals = state.user.goals||{sales:500,appo:30,meeting:15,contract:5};
   const appoRate = totalCall>0?Math.round(totalAppo/totalCall*100):0;
@@ -1979,7 +1979,7 @@ function initProfile(){
   const mReports = getMonthReports();
   const mSales = mReports.reduce((s,r)=>s+(r.sales||0),0);
   const mAppo = mReports.reduce((s,r)=>s+(r.appo||0),0);
-  const mCall = mReports.reduce((s,r)=>s+(r.call||0),0);
+  const mCall = mReports.reduce((s,r)=>s+(r.calls||0),0);
   const mContract = mReports.reduce((s,r)=>s+(r.contract||0),0);
   const appoRate = mCall>0?Math.round(mAppo/mCall*100):0;
   const contractRate = mAppo>0?Math.round(mContract/mAppo*100):0;
