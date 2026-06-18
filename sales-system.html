@@ -2071,23 +2071,10 @@ async function saveState(){
 function showNotif(msg){const n=document.getElementById('notif');document.getElementById('notifText').textContent=msg;n.classList.add('show');setTimeout(()=>n.classList.remove('show'),2500);}
 
 // ===== BOOT =====
-let _appReady = false;
 window.onload=async()=>{
   document.getElementById('reportDate').value=new Date().toISOString().split('T')[0];
-  sb.auth.onAuthStateChange(async(event, session)=>{
-    if(session && !_appReady){
-      _appReady = true;
-      await loadUserData(session.user.id);
-      document.getElementById('loginPage').style.display='none';
-      document.getElementById('app').style.display='flex';
-      initApp();
-    } else if(!session && _appReady){
-      _appReady = false;
-    }
-  });
   const {data:{session}} = await sb.auth.getSession();
-  if(session && !_appReady){
-    _appReady = true;
+  if(session){
     await loadUserData(session.user.id);
     document.getElementById('loginPage').style.display='none';
     document.getElementById('app').style.display='flex';
