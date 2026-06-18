@@ -500,10 +500,10 @@ tr:hover td{background:var(--bg3)}
           <button class="btn-primary" onclick="document.getElementById('crmModal').classList.add('open')"><i class="ti ti-plus"></i> 顧客追加</button>
         </div>
         <div class="grid-4 mb-16">
-          <div class="kpi-card"><div class="kpi-label">総顧客数</div><div class="kpi-val">48</div></div>
-          <div class="kpi-card"><div class="kpi-label">商談中</div><div class="kpi-val text-amber">11</div></div>
-          <div class="kpi-card"><div class="kpi-label">今月受注</div><div class="kpi-val text-green">4</div></div>
-          <div class="kpi-card"><div class="kpi-label">失注</div><div class="kpi-val text-red">2</div></div>
+          <div class="kpi-card"><div class="kpi-label">総顧客数</div><div class="kpi-val" id="crmTotal">0</div></div>
+          <div class="kpi-card"><div class="kpi-label">商談中</div><div class="kpi-val text-amber" id="crmActive">0</div></div>
+          <div class="kpi-card"><div class="kpi-label">今月受注</div><div class="kpi-val text-green" id="crmWon">0</div></div>
+          <div class="kpi-card"><div class="kpi-label">失注</div><div class="kpi-val text-red" id="crmLost">0</div></div>
         </div>
         <div class="card">
           <div class="flex-between mb-12">
@@ -1552,7 +1552,17 @@ function renderRanking(){
 }
 
 // ===== CRM =====
-function initCRM(){renderCRM();}
+function initCRM(){renderCRM();updateCRMStats();}
+function updateCRMStats(){
+  const now=new Date();
+  const prefix=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const el=id=>document.getElementById(id);
+  if(!el('crmTotal'))return;
+  el('crmTotal').textContent=state.crm.length;
+  el('crmActive').textContent=state.crm.filter(c=>c.status==='商談中'||c.status==='提案済').length;
+  el('crmWon').textContent=state.crm.filter(c=>c.status==='受注'&&c.date&&c.date.startsWith(prefix)).length;
+  el('crmLost').textContent=state.crm.filter(c=>c.status==='失注').length;
+}
 function renderCRM(filter=''){
   const STATUS_COLOR={リード:'badge-blue',商談中:'badge-amber',提案済:'badge-purple',受注:'badge-green',失注:'badge-red'};
   const STATUS_DOT={リード:'#4f8ef7',商談中:'#fbbf24',提案済:'#a78bfa',受注:'#34d399',失注:'#f87171'};
