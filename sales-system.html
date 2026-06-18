@@ -790,46 +790,9 @@ let state = {
   userId: null
 };
 
-function defaultCRM(){return[
-  {id:1,company:'株式会社テクノフューチャー',contact:'佐藤 部長',status:'商談中',amount:300,prob:70,owner:'山田 太郎',date:'2026-06-14'},
-  {id:2,company:'グローバルソリューションズ',contact:'田中 様',status:'提案済',amount:500,prob:85,owner:'山田 太郎',date:'2026-06-12'},
-  {id:3,company:'ネクストステップ株式会社',contact:'鈴木 課長',status:'リード',amount:150,prob:30,owner:'鈴木 花子',date:'2026-06-10'},
-  {id:4,company:'株式会社イノベーション',contact:'中村 社長',status:'受注',amount:800,prob:100,owner:'山田 太郎',date:'2026-06-08'},
-  {id:5,company:'フューチャービジョン',contact:'山本 様',status:'失注',amount:200,prob:0,owner:'田中 健一',date:'2026-06-05'},
-  {id:6,company:'クラウドテック株式会社',contact:'伊藤 部長',status:'商談中',amount:400,prob:60,owner:'鈴木 花子',date:'2026-06-16'},
-];}
+function defaultCRM(){return[];}
+function defaultTasks(){return[];}
 
-function defaultTasks(){return[
-  {id:1,name:'フォローコール - テクノフューチャー',priority:'高',due:'2026-06-18',status:'未着手',note:'価格交渉の確認'},
-  {id:2,name:'提案書作成 - グローバルソリューションズ',priority:'高',due:'2026-06-17',status:'進行中',note:'ROI試算を含む'},
-  {id:3,name:'新規リスト作成（IT業界50社）',priority:'中',due:'2026-06-20',status:'未着手',note:''},
-  {id:4,name:'商談記録の更新',priority:'低',due:'2026-06-17',status:'完了',note:''},
-  {id:5,name:'週次レポート提出',priority:'中',due:'2026-06-19',status:'未着手',note:''},
-];}
-
-const RANKINGS = {
-  weekly:[
-    {rank:1,name:'山田 太郎',team:'東京A',sales:420,appo:24,contract:4,kpi:88},
-    {rank:2,name:'鈴木 花子',team:'東京A',sales:380,appo:22,contract:3,kpi:84},
-    {rank:3,name:'田中 健一',team:'大阪',sales:350,appo:20,contract:3,kpi:80},
-    {rank:4,name:'佐藤 次郎',team:'東京B',sales:310,appo:18,contract:2,kpi:74},
-    {rank:5,name:'高橋 美咲',team:'名古屋',sales:280,appo:16,contract:2,kpi:70},
-  ],
-  total:[
-    {rank:1,name:'鈴木 花子',team:'東京A',sales:4200,appo:248,contract:38,kpi:91},
-    {rank:2,name:'山田 太郎',team:'東京A',sales:3980,appo:220,contract:35,kpi:88},
-    {rank:3,name:'田中 健一',team:'大阪',sales:3500,appo:200,contract:30,kpi:82},
-    {rank:4,name:'高橋 美咲',team:'名古屋',sales:3100,appo:180,contract:25,kpi:76},
-    {rank:5,name:'佐藤 次郎',team:'東京B',sales:2800,appo:160,contract:22,kpi:71},
-  ],
-  kpi:[
-    {rank:1,name:'鈴木 花子',team:'東京A',sales:380,appo:22,contract:3,kpi:94},
-    {rank:2,name:'山田 太郎',team:'東京A',sales:420,appo:24,contract:4,kpi:88},
-    {rank:3,name:'田中 健一',team:'大阪',sales:350,appo:20,contract:3,kpi:83},
-    {rank:4,name:'高橋 美咲',team:'名古屋',sales:280,appo:16,contract:2,kpi:77},
-    {rank:5,name:'佐藤 次郎',team:'東京B',sales:310,appo:18,contract:2,kpi:72},
-  ]
-};
 
 const PERSONALITY = {
   driver:{label:'ドライバー型',icon:'⚡',color:'var(--amber)',desc:'行動力と結果へのこだわりが強く、スピード感のある営業スタイルが特徴です。目標達成意欲が高く、困難な状況でも諦めずに前進する力があります。',strength:'行動力・結果志向・推進力',weakness:'計画性・丁寧さ・傾聴力',advice:'クロージング力を活かしつつ、ヒアリング時間を意識的に増やすことで成約率がさらに向上します。'},
@@ -1519,7 +1482,7 @@ function switchRankTab(tab,el){
   renderRanking();
 }
 function renderRanking(){
-  const data = state._rankData || RANKINGS[state.rankTab];
+  const data = state._rankData || [];
   document.getElementById('rankingTable').innerHTML=`<table><thead><tr><th>順位</th><th>氏名</th><th>チーム</th><th>売上</th><th>アポ数</th><th>成約数</th><th>KPI</th></tr></thead><tbody>${
     data.map(p=>`<tr style="background:${p.isMe?'#f0f8ff':''}"><td><div class="rank-num rank-${Math.min(p.rank,3)}">${p.rank}</div></td><td><span style="font-weight:${p.isMe?'700':'400'};color:${p.isMe?'var(--blue)':'inherit'}">${p.name}${p.isMe?' 👈':''}</span></td><td>${p.team}</td><td style="font-weight:600;color:var(--green)">¥${p.sales}万</td><td>${p.appo}件</td><td>${p.contract}件</td><td><span class="badge ${p.kpi>=85?'badge-green':p.kpi>=70?'badge-blue':'badge-amber'}">${p.kpi}</span></td></tr>`).join('')
   }</tbody></table>`;
@@ -1755,6 +1718,12 @@ async function deleteTask(id){
 let chartGap;
 function initCoach(){
   const mReports = getMonthReports();
+  if(mReports.length===0){
+    document.getElementById('weeklyGoals').innerHTML='<p class="text-muted text-sm">日報を入力するとAIコーチが目標を分析します</p>';
+    document.getElementById('coachPlan').innerHTML='<p class="text-muted text-sm" style="padding:12px">日報データがありません。まず日報を入力してください。</p>';
+    if(chartGap){chartGap.destroy();chartGap=null;}
+    return;
+  }
   const totalSales = mReports.reduce((s,r)=>s+(r.sales||0),0);
   const totalAppo = mReports.reduce((s,r)=>s+(r.appo||0),0);
   const totalCall = mReports.reduce((s,r)=>s+(r.calls||0),0);
@@ -1920,16 +1889,9 @@ function getAdvice(){
 // ===== MIND =====
 let chartMind;
 function initMind(){
-  document.getElementById('mindAnalysis').innerHTML=[
-    {label:'レジリエンス',val:82,color:'var(--teal)',desc:'失敗からの回復力が高い'},
-    {label:'主体性',val:71,color:'var(--green)',desc:'自発的な行動力'},
-    {label:'自己効力感',val:78,color:'var(--blue)',desc:'目標達成への自信'},
-    {label:'素直さ',val:88,color:'var(--purple)',desc:'フィードバック受容力'},
-    {label:'継続力',val:75,color:'var(--amber)',desc:'長期的な取り組み'},
-  ].map(m=>`<div style="margin-bottom:12px"><div class="flex-between text-sm mb-6"><span>${m.label}</span><span style="font-weight:600;color:${m.color}">${m.val}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${m.val}%;background:${m.color}"></div></div><div class="text-xs text-muted mt-4">${m.desc}</div></div>`).join('');
-
-  if(chartMind){chartMind.destroy();}
-  chartMind=new Chart(document.getElementById('chartMind').getContext('2d'),{type:'line',data:{labels:['4月','5月','6月'],datasets:[{label:'マインドスコア',data:[65,72,78],borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.1)',tension:.4,fill:true,pointRadius:5},{label:'レジリエンス',data:[70,76,82],borderColor:'#2dd4bf',backgroundColor:'transparent',tension:.4,pointRadius:4,borderDash:[5,3]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}},y:{min:50,max:100,ticks:{color:'#a0aabe',font:{size:11}},grid:{color:'rgba(255,255,255,.04)'}}}}});
+  const el = document.getElementById('mindAnalysis');
+  if(el) el.innerHTML = '<p class="text-muted text-sm">ジャーナルを記録すると分析が表示されます</p>';
+  if(chartMind){chartMind.destroy(); chartMind=null;}
 }
 let selectedMood = 3;
 function selectMood(n,el){
