@@ -928,7 +928,9 @@ async function loadUserData(userId){
     state.user.goals = profile.goals||{sales:500,appo:30,meeting:15,contract:5};
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
   }
-  const {data:reports} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
+  const {data:reports, error:repLoadErr} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
+  if(repLoadErr) console.error('日報読込エラー:', repLoadErr);
+  console.log('日報取得件数:', (reports||[]).length, 'userId:', userId);
   state.reports = (reports||[]).map(r=>({id:r.id,date:r.date,call:r.call||0,appo:r.appo||0,meeting:r.meeting||0,contract:r.contract||0,proposal:r.proposal||0,sales:r.sales||0,good:r.good||'',bad:r.bad||'',plan:r.plan||''}));
   const {data:crm} = await sb.from('crm_contacts').select('*').eq('user_id',userId).order('created_at',{ascending:false});
   state.crm = (crm&&crm.length>0)?crm.map(c=>({id:c.id,company:c.company,contact:c.contact,status:c.status,amount:c.amount,prob:c.prob,owner:c.owner,date:c.date,note:c.note})):defaultCRM();
