@@ -426,6 +426,7 @@ tr:hover td{background:var(--bg3)}
               <h3>スキル評価チェックリスト</h3>
               <span class="badge badge-blue" id="checkBadge">0 / 0 項目</span>
             </div>
+            <div class="form-group" style="margin-bottom:12px"><label>対象の商談・顧客名</label><input type="text" id="skillDealName" placeholder="例：株式会社〇〇 様 第2回商談"></div>
             <div class="tabs" id="skillTabs" style="flex-wrap:wrap;width:100%">
               <div class="tab active" onclick="switchSkillTab('rapport',this)">ラポール</div>
               <div class="tab" onclick="switchSkillTab('hearing',this)">ヒアリング</div>
@@ -443,6 +444,10 @@ tr:hover td{background:var(--bg3)}
               <span class="text-xs text-muted" id="sessionCount">保存済み: 0回 / 次の評価まで 10回</span>
               <button class="btn-primary btn-sm" onclick="saveSkillSession()"><i class="ti ti-device-floppy"></i> この商談を保存</button>
             </div>
+          </div>
+          <div class="card mt-16">
+            <h3 class="mb-12">最近の商談履歴</h3>
+            <div id="skillSessionList"></div>
           </div>
           <div class="card mt-16" id="skillEvalCard" style="display:none">
             <div class="flex-between mb-12"><h3><i class="ti ti-award" style="color:var(--amber)"></i> 10回分の評価レポート</h3><span class="badge badge-amber" id="evalBadge"></span></div>
@@ -1328,6 +1333,24 @@ async function loadSkillSessions(){
   skillSessions = data||[];
   updateSessionCount();
   renderSkillEval();
+  renderSkillSessionList();
+}
+function renderSkillSessionList(){
+  const el = document.getElementById('skillSessionList');
+  if(!el) return;
+  const recent = skillSessions.slice(0,8);
+  el.innerHTML = recent.length===0
+    ? '<p class="text-muted text-sm">まだ商談記録がありません</p>'
+    : recent.map(s=>{
+        const avg = Math.round((s.rapport+s.hearing+s.deepdive+s.proposal+s.closing)/5);
+        return `<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:500">${s.deal_name?s.deal_name:'（商談名未入力）'}</div>
+            <div class="text-xs text-muted">${s.date}</div>
+          </div>
+          <span style="font-size:14px;font-weight:700;color:${avg>=70?'var(--green)':avg>=50?'var(--amber)':'var(--red)'}">${avg}点</span>
+        </div>`;
+      }).join('');
 }
 
 function updateSessionCount(){
@@ -1340,13 +1363,15 @@ function updateSessionCount(){
 async function saveSkillSession(){
   const totalChecked = Object.values(checkState).reduce((s,c)=>s+Object.values(c).filter(Boolean).length,0);
   if(totalChecked===0){showNotif('最低1項目チェックしてから保存してください');return;}
+  const dealName = document.getElementById('skillDealName').value.trim();
   const session = {
     rapport: state.sliders.rapport||0,
     hearing: state.sliders.hearing||0,
     deepdive: state.sliders.deepdive||0,
     proposal: state.sliders.proposal||0,
     closing: state.sliders.closing||0,
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    deal_name: dealName
   };
   if(state.userId){
     const {data} = await sb.from('skill_sessions').insert({user_id:state.userId,...session}).select().single();
@@ -1357,12 +1382,14 @@ async function saveSkillSession(){
   // リセット
   checkState = {rapport:{},hearing:{},deepdive:{},proposal:{},closing:{}};
   Object.keys(state.sliders).forEach(k=>state.sliders[k]=0);
+  document.getElementById('skillDealName').value='';
   renderChecklist(currentSkillTab);
   updateTotalScore();
   renderRadar();
   document.getElementById('checkBadge').textContent = '0 / 40 項目';
   updateSessionCount();
   renderSkillEval();
+  renderSkillSessionList();
   showNotif(`商談を保存しました（計${skillSessions.length}回）`);
 }
 
