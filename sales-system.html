@@ -676,7 +676,10 @@ tr:hover td{background:var(--bg3)}
             </div>
             <div class="form-group"><label>今日の一言</label><textarea id="mindNote" rows="3" placeholder="今日感じたこと、気づきなど..."></textarea></div>
           </div>
-          <button class="btn-primary" onclick="saveMindJournal()">保存</button>
+          <hr class="separator">
+          <h3 style="font-size:14px;margin-bottom:10px">マインド質問チェック（各1〜5）</h3>
+          <div id="mindQuestions"></div>
+          <button class="btn-primary mt-16" onclick="saveMindJournal()">保存</button>
           <div class="mt-16"><h3 style="font-size:14px;margin-bottom:10px">過去の記録</h3><div id="mindHistory"><p class="text-muted text-sm">まだジャーナルがありません</p></div></div>
         </div>
       </div>
@@ -2003,10 +2006,35 @@ function getAdvice(){
 
 // ===== MIND =====
 let chartMind;
+const MIND_QUESTIONS = [
+  {key:'resilience', label:'レジリエンス', q:'今日、うまくいかないことがあっても気持ちを立て直せましたか？'},
+  {key:'agency', label:'主体性', q:'今日、自分から考えて行動できましたか？'},
+  {key:'efficacy', label:'自己効力感', q:'今日、目標を達成できる自信を持てましたか？'},
+  {key:'openness', label:'素直さ', q:'今日、人からの指摘や意見を素直に受け止められましたか？'},
+  {key:'persistence', label:'継続力', q:'今日、最後までやり切ることができましたか？'},
+];
+let mindAnswers = {resilience:3,agency:3,efficacy:3,openness:3,persistence:3};
 function initMind(){
   const el = document.getElementById('mindAnalysis');
   if(el) el.innerHTML = '<p class="text-muted text-sm">ジャーナルを記録すると分析が表示されます</p>';
   if(chartMind){chartMind.destroy(); chartMind=null;}
+  renderMindQuestions();
+}
+function renderMindQuestions(){
+  const el = document.getElementById('mindQuestions');
+  if(!el) return;
+  el.innerHTML = MIND_QUESTIONS.map(q=>`
+    <div style="margin-bottom:12px">
+      <div style="font-size:13px;margin-bottom:6px">${q.label}：<span class="text-muted" style="font-size:12px">${q.q}</span></div>
+      <div class="flex gap-6" id="mindQ_${q.key}">
+        ${[1,2,3,4,5].map(n=>`<span class="personality-card${n===3?' selected':''}" data-val="${n}" style="padding:6px 12px;flex:1;text-align:center;cursor:pointer" onclick="selectMindAnswer('${q.key}',${n},this)">${n}</span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function selectMindAnswer(key,val,el){
+  mindAnswers[key]=val;
+  document.querySelectorAll(`#mindQ_${key} .personality-card`).forEach(e=>e.classList.remove('selected'));
+  el.classList.add('selected');
 }
 let selectedMood = 3;
 function selectMood(n,el){
@@ -2019,7 +2047,7 @@ async function saveMindJournal(){
   const note = document.getElementById('mindNote').value;
   const date = new Date().toISOString().split('T')[0];
   if(state.userId){
-    await sb.from('mind_journals').insert({user_id:state.userId, date, mood:selectedMood, note});
+    await sb.from('mind_journals').insert({user_id:state.userId, date, mood:selectedMood, note, ...mindAnswers});
   }
   showNotif('ジャーナルを保存しました');
   document.getElementById('mindNote').value='';
@@ -2029,18 +2057,21 @@ async function saveMindJournal(){
 let mindJournals = [];
 async function loadMindJournals(){
   if(!state.userId) return;
-  const {data} = await sb.from('mind_journals').select('*').eq('user_id',state.userId).order('created_at',{ascending:false}).limit(10);
+  const {data} = await sb.from('mind_journals').select('*').eq('user_id',state.userId).order('date',{ascending:true}).limit(30);
   mindJournals = data||[];
   renderMindHistory();
   updateMindScore();
+  renderMindTrendChart();
+  renderMindAnalysis();
 }
 
 function renderMindHistory(){
   const el = document.getElementById('mindHistory');
   if(!el) return;
-  el.innerHTML = mindJournals.length===0
+  const recent = [...mindJournals].reverse().slice(0,10);
+  el.innerHTML = recent.length===0
     ? '<p class="text-muted text-sm">まだジャーナルがありません</p>'
-    : mindJournals.map(j=>`
+    : recent.map(j=>`
       <div style="padding:8px 0;border-bottom:1px solid var(--border)">
         <div class="flex-between mb-4">
           <span class="text-xs text-muted">${j.date}</span>
@@ -2054,10 +2085,6 @@ function updateMindScore(){
   if(mindJournals.length===0) return;
   const avgMood = mindJournals.reduce((s,j)=>s+j.mood,0)/mindJournals.length;
   const score = Math.round(avgMood*20);
-  // レジリエンス＝気分が落ち込んだ後に回復した回数から推定
-  const resilience = Math.min(100, Math.round(score * 1.05));
-  // 主体性＝記録頻度から推定（月20回が満点）
-  const agency = Math.min(100, Math.round(mindJournals.length / 20 * 100));
   document.getElementById('mindScoreVal').textContent = score;
   document.getElementById('mindBurnout').textContent = score>=80?'低':score>=60?'中':'高';
   document.getElementById('mindBurnoutLabel').textContent = score>=80?'健全な状態':score>=60?'要注意':'要休息';
@@ -2065,6 +2092,38 @@ function updateMindScore(){
   const ma = document.getElementById('mindAvgMood');
   if(mc) mc.textContent = mindJournals.length;
   if(ma) ma.textContent = (avgMood).toFixed(1);
+}
+
+function renderMindTrendChart(){
+  const canvas = document.getElementById('chartMind');
+  if(!canvas) return;
+  if(chartMind){chartMind.destroy();}
+  if(mindJournals.length===0) return;
+  const labels = mindJournals.map(j=>j.date.slice(5));
+  const moodScore = mindJournals.map(j=>j.mood*20);
+  const mindAvg = mindJournals.map(j=>{
+    const vals=[j.resilience,j.agency,j.efficacy,j.openness,j.persistence].filter(v=>v!=null);
+    return vals.length>0?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20):null;
+  });
+  chartMind=new Chart(canvas.getContext('2d'),{type:'line',data:{labels,datasets:[
+    {label:'マインドスコア',data:moodScore,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.1)',tension:.4,fill:true,pointRadius:4},
+    {label:'マインド指標平均',data:mindAvg,borderColor:'#2dd4bf',backgroundColor:'transparent',tension:.4,pointRadius:3,borderDash:[5,3]}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},y:{min:0,max:100,ticks:{color:'#a0aabe',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}}}}});
+}
+
+function renderMindAnalysis(){
+  const el = document.getElementById('mindAnalysis');
+  if(!el) return;
+  if(mindJournals.length===0){ el.innerHTML='<p class="text-muted text-sm">ジャーナルを記録すると分析が表示されます</p>'; return; }
+  const avgOf = key => {
+    const vals = mindJournals.map(j=>j[key]).filter(v=>v!=null);
+    return vals.length>0 ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20) : 0;
+  };
+  el.innerHTML = MIND_QUESTIONS.map(q=>{
+    const val = avgOf(q.key);
+    const color = val>=80?'var(--green)':val>=60?'var(--blue)':val>=40?'var(--amber)':'var(--red)';
+    return `<div style="margin-bottom:12px"><div class="flex-between text-sm mb-6"><span>${q.label}</span><span style="font-weight:600;color:${color}">${val}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${val}%;background:${color}"></div></div></div>`;
+  }).join('');
 }
 
 // ===== PROFILE =====
