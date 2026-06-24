@@ -2084,10 +2084,11 @@ async function saveMindJournal(){
   const avgAnswers = {};
   Object.keys(mindAnswers).forEach(k=>{
     const arr = mindAnswers[k];
-    avgAnswers[k] = Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*10)/10;
+    avgAnswers[k] = Math.round(arr.reduce((a,b)=>a+b,0)/arr.length);
   });
   if(state.userId){
-    await sb.from('mind_journals').insert({user_id:state.userId, date, mood:selectedMood, note, ...avgAnswers});
+    const {error} = await sb.from('mind_journals').insert({user_id:state.userId, date, mood:selectedMood, note, ...avgAnswers});
+    if(error){console.error('mind journal save error:',error);showNotif('⚠️ 保存失敗: '+error.message);return;}
   }
   showNotif('ジャーナルを保存しました');
   document.getElementById('mindNote').value='';
