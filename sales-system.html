@@ -652,6 +652,10 @@ tr:hover td{background:var(--bg3)}
             <div class="text-xs" style="color:var(--amber);margin-top:4px" id="mindBurnoutLabel">ジャーナルを記録してください</div>
           </div>
         </div>
+        <div class="card mb-16" id="mindBurnoutDetailCard" style="display:none">
+          <div class="flex-between mb-12"><h3 style="font-size:14px">バーンアウトリスク詳細分析</h3><span class="text-xs text-muted">直近の記録に基づく</span></div>
+          <div id="mindBurnoutDetail"></div>
+        </div>
         <div class="grid-2" style="gap:16px">
           <div class="card">
             <div class="flex-between mb-12"><h3>マインド推移</h3><span class="text-xs text-muted">過去3ヶ月</span></div>
@@ -2167,12 +2171,86 @@ function updateMindScore(){
   const avgMood = mindJournals.reduce((s,j)=>s+j.mood,0)/mindJournals.length;
   const score = Math.round(avgMood*20);
   document.getElementById('mindScoreVal').textContent = score;
-  document.getElementById('mindBurnout').textContent = score>=80?'低':score>=60?'中':'高';
-  document.getElementById('mindBurnoutLabel').textContent = score>=80?'健全な状態':score>=60?'要注意':'要休息';
   const mc = document.getElementById('mindCount');
   const ma = document.getElementById('mindAvgMood');
   if(mc) mc.textContent = mindJournals.length;
   if(ma) ma.textContent = (avgMood).toFixed(1);
+  computeBurnoutRisk();
+}
+
+// MBI（Maslach Burnout Inventory）の3要素（疲弊・シニシズム・効力感低下）を参考にした多面的リスク評価
+function computeBurnoutRisk(){
+  const window = mindJournals.slice(-14); // 直近14回分
+  const valOf = (j,k) => j[k]!=null ? j[k] : 3;
+  const avgOf = (arr,k) => arr.reduce((s,j)=>s+valOf(j,k),0)/arr.length;
+
+  const resilience = avgOf(window,'resilience');
+  const persistence = avgOf(window,'persistence');
+  const agency = avgOf(window,'agency');
+  const openness = avgOf(window,'openness');
+  const efficacy = avgOf(window,'efficacy');
+
+  // 各要素を0-100のリスクスコアに変換（1点=リスク高、5点=リスク低）
+  const toRisk = v => Math.round((5-v)/4*100);
+  const exhaustion = toRisk((resilience+persistence)/2);      // 疲弊（回復力・継続力の低下）
+  const cynicism = toRisk((agency+openness)/2);                 // シニシズム（主体性・素直さの低下＝心理的離脱）
+  const reducedEfficacy = toRisk(efficacy);                     // 効力感の低下
+
+  // トレンド検出：前半と後半を比較して悪化傾向を検出
+  let trendBonus = 0;
+  let trendNote = '';
+  if(window.length>=4){
+    const half = Math.floor(window.length/2);
+    const firstHalf = window.slice(0,half);
+    const secondHalf = window.slice(half);
+    const overallOf = arr => arr.reduce((s,j)=>s+(valOf(j,'resilience')+valOf(j,'agency')+valOf(j,'efficacy')+valOf(j,'openness')+valOf(j,'persistence'))/5,0)/arr.length;
+    const o1 = overallOf(firstHalf), o2 = overallOf(secondHalf);
+    if(o2 < o1 - 0.4){ trendBonus = 15; trendNote = '直近の記録で総合スコアが悪化傾向にあります。'; }
+  }
+
+  // 連続低スコア検出（直近から遡って overall < 2.5 が何回連続か）
+  let consecutiveLow = 0;
+  for(let i=window.length-1;i>=0;i--){
+    const j = window[i];
+    const overall = (valOf(j,'resilience')+valOf(j,'agency')+valOf(j,'efficacy')+valOf(j,'openness')+valOf(j,'persistence'))/5;
+    if(overall < 2.5) consecutiveLow++; else break;
+  }
+  const consecutiveBonus = consecutiveLow>=3 ? 15 : consecutiveLow>=2 ? 8 : 0;
+
+  let burnoutScore = Math.round(0.4*exhaustion + 0.3*cynicism + 0.3*reducedEfficacy + trendBonus + consecutiveBonus);
+  burnoutScore = Math.min(100, Math.max(0, burnoutScore));
+
+  const level = burnoutScore>=75?'非常に高い':burnoutScore>=50?'高':burnoutScore>=25?'中':'低';
+  const levelColor = burnoutScore>=75?'var(--red)':burnoutScore>=50?'var(--red)':burnoutScore>=25?'var(--amber)':'var(--green)';
+  const labelText = burnoutScore>=75?'要緊急対応：早急な休養・面談を推奨':burnoutScore>=50?'要休息：上司・人事との面談を推奨':burnoutScore>=25?'要注意：セルフケアを意識':'健全な状態';
+
+  document.getElementById('mindBurnout').textContent = level;
+  document.getElementById('mindBurnout').style.color = levelColor;
+  document.getElementById('mindBurnoutLabel').textContent = labelText;
+
+  // 詳細根拠の表示
+  const reasons = [];
+  if(exhaustion>=50) reasons.push(`疲弊度が高い（レジリエンス${resilience.toFixed(1)}・継続力${persistence.toFixed(1)} / 5）`);
+  if(cynicism>=50) reasons.push(`心理的離脱の兆候（主体性${agency.toFixed(1)}・素直さ${openness.toFixed(1)} / 5）`);
+  if(reducedEfficacy>=50) reasons.push(`自己効力感の低下（${efficacy.toFixed(1)} / 5）`);
+  if(trendNote) reasons.push(trendNote);
+  if(consecutiveLow>=2) reasons.push(`直近${consecutiveLow}回連続でスコアが低水準です。`);
+  if(reasons.length===0) reasons.push('現時点で特筆すべきリスク要因は見られません。');
+
+  const detailCard = document.getElementById('mindBurnoutDetailCard');
+  const detailEl = document.getElementById('mindBurnoutDetail');
+  if(detailCard && detailEl){
+    detailCard.style.display='block';
+    detailEl.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">疲弊度</div><div style="font-size:18px;font-weight:700;color:${exhaustion>=50?'var(--red)':'var(--green)'}">${exhaustion}</div></div>
+        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">心理的離脱</div><div style="font-size:18px;font-weight:700;color:${cynicism>=50?'var(--red)':'var(--green)'}">${cynicism}</div></div>
+        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">効力感低下</div><div style="font-size:18px;font-weight:700;color:${reducedEfficacy>=50?'var(--red)':'var(--green)'}">${reducedEfficacy}</div></div>
+      </div>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:12px;line-height:1.8;color:var(--text)">
+        ${reasons.map(r=>`<li>${r}</li>`).join('')}
+      </ul>`;
+  }
 }
 
 function renderMindTrendChart(){
