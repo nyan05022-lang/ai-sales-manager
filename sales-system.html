@@ -1026,7 +1026,8 @@ async function loadUserData(userId){
     document.getElementById('navAdmin').style.display = 'none';
     document.getElementById('navSectionAdmin').style.display = 'none';
     if(profile.team_id){
-      const {data:teamData} = await sb.from('teams').select('code,name').eq('id',profile.team_id).single();
+      const {data:teamData, error:teamErr} = await sb.from('teams').select('code,name').eq('id',profile.team_id).single();
+      console.log('team lookup:', teamData, teamErr);
       if(teamData){ state.user.teamCode = teamData.code; state.user.team = teamData.name; }
     }
   }
