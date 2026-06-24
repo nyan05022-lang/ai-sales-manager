@@ -359,8 +359,8 @@ tr:hover td{background:var(--bg3)}
         </div>
         <div class="grid-2" style="gap:16px">
           <div class="card">
-            <div class="flex-between mb-12"><h3>最近の活動</h3><button class="btn-ghost btn-sm" onclick="showPage('report',document.querySelector('[onclick*=report]'))">日報入力 →</button></div>
-            <div id="recentActivity"></div>
+            <div class="flex-between mb-12"><h3>自分のスキルバランス</h3><button class="btn-ghost btn-sm" onclick="showPage('kpi',document.querySelector('[onclick*=kpi]'))">詳細 →</button></div>
+            <div class="chart-wrap" style="height:220px"><canvas id="chartRadarDash" role="img" aria-label="営業スキルレーダーチャート">スキル評価グラフ</canvas></div>
           </div>
           <div class="card">
             <div class="flex-between mb-12"><h3>今日のタスク</h3><span class="badge badge-red">3件未了</span></div>
@@ -1039,6 +1039,40 @@ function initDashboard(){
     : '<p class="text-muted text-sm">本日のタスクはありません</p>';
 
   renderSalesChart('day');
+  renderDashRadar();
+}
+
+let chartRadarDash;
+async function renderDashRadar(){
+  const canvas = document.getElementById('chartRadarDash');
+  if(!canvas) return;
+  if(state.userId && skillSessions.length===0){
+    await loadSkillSessions();
+  }
+  const labels = SLIDERS_DEF.map(s=>s.label);
+  const datasets = [];
+  if(skillSessions.length>0){
+    const avgData = SLIDERS_DEF.map(s=>Math.round(skillSessions.reduce((sum,sess)=>sum+(sess[s.key]||0),0)/skillSessions.length));
+    datasets.push({label:`過去${skillSessions.length}回の平均`,data:avgData,borderColor:'#0e9e6e',backgroundColor:'rgba(14,158,110,.15)',pointRadius:4,pointBackgroundColor:'#0e9e6e',borderWidth:2});
+  } else {
+    datasets.push({label:'スキル',data:[0,0,0,0,0],borderColor:'#b8d8ee',backgroundColor:'rgba(184,216,238,.1)',pointRadius:3,borderWidth:1.5});
+  }
+  if(chartRadarDash){chartRadarDash.destroy();}
+  chartRadarDash=new Chart(canvas.getContext('2d'),{
+    type:'radar',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{r:{
+        grid:{color:'rgba(26,100,180,.12)'},
+        angleLines:{color:'rgba(26,100,180,.12)'},
+        ticks:{color:'#8aafc8',font:{size:9},backdropColor:'transparent',stepSize:20},
+        pointLabels:{color:'#1a2e3d',font:{size:11}},
+        min:0,max:100
+      }}
+    }
+  });
 }
 
 function switchSalesTab(mode, el){
