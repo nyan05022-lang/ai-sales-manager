@@ -1364,7 +1364,8 @@ async function saveSkillSession(){
     deal_name: dealName
   };
   if(state.userId){
-    const {data} = await sb.from('skill_sessions').insert({user_id:state.userId,...session}).select().single();
+    const {data,error} = await sb.from('skill_sessions').insert({user_id:state.userId,...session}).select().single();
+    if(error){console.error('skill session save error:',error);showNotif('⚠️ 保存失敗: '+error.message);return;}
     if(data) skillSessions.unshift(data);
   } else {
     skillSessions.unshift({id:Date.now(),...session});
