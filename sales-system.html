@@ -1032,10 +1032,9 @@ async function loadUserData(userId){
     }
   }
   setAdminMode(false);
-  const {data:reports, error:repLoadErr} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
+  const {data:reports, error:repLoadErr} = await sb.from('daily_reports').select('*').eq('user_id',userId);
   if(repLoadErr) console.error('日報読込エラー:', repLoadErr);
-  console.log('日報取得件数:', (reports||[]).length, 'userId:', userId);
-  state.reports = (reports||[]).map(r=>({id:r.id,date:r.date,calls:r.calls||0,appo:r.appo||0,meeting:r.meeting||0,contract:r.contract||0,proposal:r.proposal||0,sales:r.sales||0,good:r.good||'',bad:r.bad||'',plan:r.plan||''}));
+  state.reports = (reports||[]).map(r=>({id:r.id,date:r.date,calls:r.calls||0,appo:r.appo||0,meeting:r.meeting||0,contract:r.contract||0,proposal:r.proposal||0,sales:r.sales||0,good:r.good||'',bad:r.bad||'',plan:r.plan||''})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const {data:crm} = await sb.from('crm_contacts').select('*').eq('user_id',userId);
   state.crm = (crm&&crm.length>0)?crm.map(c=>({id:c.id,company:c.company,contact:c.contact,status:c.status,amount:c.amount,prob:c.prob,owner:c.owner,date:c.date,note:c.note})):defaultCRM();
   const {data:tasks,error:taskErr} = await sb.from('tasks').select('*').eq('user_id',userId);
@@ -1463,8 +1462,9 @@ let skillSessions = [];
 
 async function loadSkillSessions(){
   if(!state.userId) return;
-  const {data} = await sb.from('skill_sessions').select('*').eq('user_id',state.userId).order('created_at',{ascending:false});
-  skillSessions = data||[];
+  const {data,error} = await sb.from('skill_sessions').select('*').eq('user_id',state.userId);
+  if(error) console.error('skill_sessions load error:',error);
+  skillSessions = (data||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   updateSessionCount();
   renderSkillEval();
   renderSkillSessionList();
@@ -2472,8 +2472,9 @@ async function loadManagerFeedback(){
   const el = document.getElementById('managerFeedback');
   if(!el) return;
   if(!state.userId){el.innerHTML='<p class="text-muted text-sm">ログイン後に表示されます</p>';return;}
-  const {data} = await sb.from('manager_feedback').select('*').eq('user_id',state.userId).order('created_at',{ascending:false});
-  const list = data||[];
+  const {data,error} = await sb.from('manager_feedback').select('*').eq('user_id',state.userId);
+  if(error) console.error('manager_feedback load error:',error);
+  const list = (data||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   el.innerHTML = list.length===0
     ? '<p class="text-muted text-sm">まだフィードバックはありません</p>'
     : list.map(f=>`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
