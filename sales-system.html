@@ -326,9 +326,8 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div class="flex gap-12">
         <button class="btn-ghost btn-sm staff-nav" onclick="showPage('report',document.querySelector('[onclick*=report]'))"><i class="ti ti-plus"></i> 日報入力</button>
-        <div class="flex gap-8" id="notifBell" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;cursor:pointer;position:relative" onclick="openFeedbackNotif()">
+        <div class="flex gap-8" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;cursor:pointer">
           <i class="ti ti-bell" style="font-size:15px;color:var(--text2)"></i>
-          <span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;align-items:center;justify-content:center;padding:0 3px"></span>
         </div>
       </div>
     </div>
@@ -1060,31 +1059,6 @@ function initApp(){
   initMind();
   initProfile();
   initRanking();
-  checkFeedbackNotif();
-}
-
-// ===== FEEDBACK NOTIFICATION =====
-async function checkFeedbackNotif(){
-  if(!state.userId) return;
-  const {data} = await sb.from('manager_feedback').select('id,date').eq('user_id',state.userId);
-  const cutoff = feedbackCutoffDate();
-  const list = (data||[]).filter(f=>f.date>=cutoff);
-  const seenIds = JSON.parse(localStorage.getItem('fbSeenIds_'+state.userId) || '[]');
-  const unread = list.filter(f=>!seenIds.includes(f.id)).length;
-  const badge = document.getElementById('notifBadge');
-  if(!badge) return;
-  if(unread>0){
-    badge.style.display='flex';
-    badge.textContent = unread>9?'9+':unread;
-  } else {
-    badge.style.display='none';
-  }
-}
-async function openFeedbackNotif(){
-  const {data} = await sb.from('manager_feedback').select('id').eq('user_id',state.userId);
-  localStorage.setItem('fbSeenIds_'+state.userId, JSON.stringify((data||[]).map(f=>f.id)));
-  document.getElementById('notifBadge').style.display='none';
-  showPage('profile', document.querySelector('.nav-item[onclick*="profile"]'));
 }
 
 // ===== DASHBOARD =====
