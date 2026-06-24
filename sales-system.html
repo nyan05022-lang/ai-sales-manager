@@ -2641,6 +2641,10 @@ function showAdminMemberDetail(userId){
       <div class="kpi-card"><div class="kpi-label">KPI達成率</div><div class="kpi-val" style="color:var(--purple)">${x.kpi}%</div></div>
       <div class="kpi-card"><div class="kpi-label">最終日報</div><div class="kpi-val" style="font-size:14px;color:${x.daysSinceReport>=3?'var(--red)':'var(--text)'}">${x.lastReportDate||'なし'}</div></div>
     </div>
+    <div class="grid-2 mb-16" style="gap:16px">
+      <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">売上推移（過去6ヶ月）</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberSalesChart"></canvas></div></div>
+      <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">KPI達成率推移（過去6ヶ月）</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberKpiChart"></canvas></div></div>
+    </div>
     <h4 class="mb-8" style="font-size:13px">直近の日報</h4>
     <table class="mb-16"><thead><tr><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th></tr></thead>
       <tbody>${myReports.map(r=>`<tr><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td></tr>`).join('')||'<tr><td colspan="6" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
@@ -2658,6 +2662,37 @@ function showAdminMemberDetail(userId){
       <div id="adminFbHistory">読込中...</div>
     </div>`;
   loadAdminFbHistory(userId);
+  renderAdminMemberCharts(userId, p);
+}
+let chartAdminMemberSales, chartAdminMemberKpi;
+function renderAdminMemberCharts(userId, p){
+  const now = new Date();
+  const monthLabels=[], salesData=[], kpiData=[];
+  const goal = p.goals?.sales||500;
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const prefix = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    monthLabels.push(`${d.getMonth()+1}月`);
+    const reps = _adminData.reports.filter(r=>r.user_id===userId && r.date && r.date.startsWith(prefix));
+    const sales = reps.reduce((s,r)=>s+(r.sales||0),0);
+    salesData.push(sales);
+    kpiData.push(goal>0?Math.round(sales/goal*100):0);
+  }
+  if(chartAdminMemberSales){chartAdminMemberSales.destroy();}
+  if(chartAdminMemberKpi){chartAdminMemberKpi.destroy();}
+  const salesCanvas = document.getElementById('adminMemberSalesChart');
+  const kpiCanvas = document.getElementById('adminMemberKpiChart');
+  if(!salesCanvas || !kpiCanvas) return;
+  chartAdminMemberSales = new Chart(salesCanvas.getContext('2d'), {
+    type:'line',
+    data:{labels:monthLabels, datasets:[{label:'売上（万円）',data:salesData,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.1)',tension:.4,fill:true,pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10},callback:v=>v+'万'}}}}
+  });
+  chartAdminMemberKpi = new Chart(kpiCanvas.getContext('2d'), {
+    type:'line',
+    data:{labels:monthLabels, datasets:[{label:'KPI達成率（%）',data:kpiData,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.1)',tension:.4,fill:true,pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10},callback:v=>v+'%'}}}}
+  });
 }
 async function loadAdminFbHistory(userId){
   const {data} = await sb.from('manager_feedback').select('*').eq('user_id',userId);
