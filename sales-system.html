@@ -197,11 +197,18 @@ tr:hover td{background:var(--bg3)}
     <div class="auth-tabs">
       <div class="auth-tab active" onclick="setAuthTab('login',this)">ログイン</div>
       <div class="auth-tab" onclick="setAuthTab('register',this)">新規登録</div>
+      <div class="auth-tab" onclick="setAuthTab('adminlogin',this)">🛠 管理者</div>
     </div>
     <div id="loginForm">
       <div class="form-group"><label>メールアドレス</label><input type="email" id="loginEmail" placeholder="example@company.com"></div>
       <div class="form-group"><label>パスワード</label><input type="password" id="loginPass" placeholder="••••••••"></div>
       <button class="btn-primary" style="width:100%;margin-top:4px" onclick="doLogin()">ログイン</button>
+    </div>
+    <div id="adminLoginForm" style="display:none">
+      <p class="text-muted text-sm mb-16" style="text-align:center">管理者権限を持つアカウントでログインしてください</p>
+      <div class="form-group"><label>メールアドレス</label><input type="email" id="adminLoginEmail" placeholder="admin@company.com"></div>
+      <div class="form-group"><label>パスワード</label><input type="password" id="adminLoginPass" placeholder="••••••••"></div>
+      <button class="btn-primary" style="width:100%;margin-top:4px;background:var(--red)" onclick="doAdminLogin()"><i class="ti ti-shield-lock"></i> 管理者としてログイン</button>
     </div>
     <div id="registerForm" style="display:none">
       <div class="grid-2">
@@ -864,6 +871,28 @@ function setAuthTab(tab, el){
   el.classList.add('active');
   document.getElementById('loginForm').style.display = tab==='login'?'block':'none';
   document.getElementById('registerForm').style.display = tab==='register'?'block':'none';
+  document.getElementById('adminLoginForm').style.display = tab==='adminlogin'?'block':'none';
+}
+async function doAdminLogin(){
+  const email = document.getElementById('adminLoginEmail').value;
+  const pass = document.getElementById('adminLoginPass').value;
+  if(!email||!pass){showNotif('メールとパスワードを入力してください');return;}
+  const btn = event.target; btn.textContent='確認中...'; btn.disabled=true;
+  const {data, error} = await sb.auth.signInWithPassword({email, password: pass});
+  if(error){btn.innerHTML='<i class="ti ti-shield-lock"></i> 管理者としてログイン';btn.disabled=false;showNotif('ログイン失敗: '+error.message);return;}
+  const {data:profile} = await sb.from('profiles').select('is_admin').eq('id',data.user.id).single();
+  if(!profile || !profile.is_admin){
+    btn.innerHTML='<i class="ti ti-shield-lock"></i> 管理者としてログイン';btn.disabled=false;
+    await sb.auth.signOut();
+    showNotif('⚠️ このアカウントには管理者権限がありません');
+    return;
+  }
+  btn.innerHTML='<i class="ti ti-shield-lock"></i> 管理者としてログイン';btn.disabled=false;
+  await loadUserData(data.user.id);
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('app').style.display='flex';
+  initApp();
+  showPage('admin', document.getElementById('navAdmin'));
 }
 async function doLogin(){
   const email = document.getElementById('loginEmail').value;
