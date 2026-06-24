@@ -211,10 +211,16 @@ tr:hover td{background:var(--bg3)}
       <button class="btn-primary" style="width:100%;margin-top:4px;background:var(--red)" onclick="doAdminLogin()"><i class="ti ti-shield-lock"></i> 管理者としてログイン</button>
     </div>
     <div id="registerForm" style="display:none">
-      <div class="grid-2">
-        <div class="form-group"><label>氏名</label><input type="text" id="regName" placeholder="山田 太郎"></div>
-        <div class="form-group"><label>チーム</label><select id="regTeam"><option>東京チームA</option><option>東京チームB</option><option>大阪チーム</option><option>名古屋チーム</option></select></div>
+      <div class="form-group"><label>氏名</label><input type="text" id="regName" placeholder="山田 太郎"></div>
+      <div class="form-group">
+        <label>チームへの参加方法</label>
+        <div class="auth-tabs" style="margin-top:4px">
+          <div class="auth-tab active" id="regModeJoin" onclick="setRegMode('join',this)">チームコードで参加</div>
+          <div class="auth-tab" id="regModeCreate" onclick="setRegMode('create',this)">新しいチームを作る</div>
+        </div>
       </div>
+      <div id="regJoinArea" class="form-group"><label>チームコード</label><input type="text" id="regTeamCode" placeholder="例：ABC12345" style="text-transform:uppercase"></div>
+      <div id="regCreateArea" class="form-group" style="display:none"><label>新しいチーム名</label><input type="text" id="regNewTeamName" placeholder="例：東京営業部"></div>
       <div class="form-group"><label>メールアドレス</label><input type="email" id="regEmail" placeholder="example@company.com"></div>
       <div class="form-group"><label>パスワード</label><input type="password" id="regPass" placeholder="8文字以上"></div>
       <button class="btn-primary" style="width:100%;margin-top:4px" onclick="goToRegisterFlow()">次へ → 性格診断</button>
@@ -703,6 +709,10 @@ tr:hover td{background:var(--bg3)}
                   <div class="flex gap-8 mt-8"><span class="badge badge-blue" id="profileType">ドライバー型</span><span class="badge badge-green">入社3年目</span></div>
                 </div>
               </div>
+              <div class="flex-between" id="teamCodeArea" style="display:none;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:12px">
+                <span class="text-xs text-muted">チーム招待コード：<strong id="teamCodeVal" style="color:var(--blue);font-family:monospace"></strong></span>
+                <button class="btn-ghost btn-sm" onclick="copyTeamCode()">コピー</button>
+              </div>
               <hr class="separator">
               <div id="personalityResult"></div>
             </div>
@@ -914,13 +924,29 @@ async function doLogin(){
   initApp();
 }
 let regData = {};
+let regMode = 'join';
+function setRegMode(mode, el){
+  regMode = mode;
+  document.querySelectorAll('#regModeJoin,#regModeCreate').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('regJoinArea').style.display = mode==='join'?'block':'none';
+  document.getElementById('regCreateArea').style.display = mode==='create'?'block':'none';
+}
 function goToRegisterFlow(){
   const email = document.getElementById('regEmail').value;
   const pass = document.getElementById('regPass').value;
   const name = document.getElementById('regName').value;
   if(!email||!pass||!name){showNotif('全項目を入力してください');return;}
   if(pass.length<6){showNotif('パスワードは6文字以上です');return;}
-  regData = {email, pass, name, team: document.getElementById('regTeam').value};
+  if(regMode==='join'){
+    const code = document.getElementById('regTeamCode').value.trim().toUpperCase();
+    if(!code){showNotif('チームコードを入力してください');return;}
+    regData = {email, pass, name, mode:'join', teamCode:code};
+  } else {
+    const teamName = document.getElementById('regNewTeamName').value.trim();
+    if(!teamName){showNotif('チーム名を入力してください');return;}
+    regData = {email, pass, name, mode:'create', teamName};
+  }
   document.getElementById('loginPage').style.display='none';
   document.getElementById('registerPage').style.display='block';
 }
@@ -935,21 +961,42 @@ function nextDiagStep(){
   document.getElementById('s2').classList.remove('active');document.getElementById('s2').classList.add('done');
   document.getElementById('s3').classList.add('active');
 }
+function genTeamCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code='';
+  for(let i=0;i<8;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
 async function completeRegister(){
   const email = regData.email;
   const pass = regData.pass;
   const name = regData.name || 'ユーザー';
-  const team = regData.team;
   const {data, error} = await sb.auth.signUp({email, password: pass});
   if(error){showNotif('登録失敗: '+error.message);return;}
   if(!data.user){showNotif('登録失敗: ユーザーが作成されませんでした');return;}
   state.userId = data.user.id;
+
+  let teamId, teamName;
+  if(regData.mode==='join'){
+    const {data:team, error:teamErr} = await sb.from('teams').select('*').eq('code',regData.teamCode).single();
+    if(teamErr || !team){showNotif('⚠️ チームコードが見つかりません。確認して再度お試しください。');return;}
+    teamId = team.id;
+    teamName = team.name;
+  } else {
+    const newCode = genTeamCode();
+    const {data:team, error:teamErr} = await sb.from('teams').insert({name:regData.teamName, code:newCode, created_by:state.userId}).select().single();
+    if(teamErr){showNotif('チーム作成失敗: '+teamErr.message);return;}
+    teamId = team.id;
+    teamName = team.name;
+    showNotif(`チームを作成しました！招待コード: ${newCode}（メンバーに共有してください）`);
+  }
+
   state.user.name = name;
-  state.user.team = team;
+  state.user.team = teamName;
   state.user.type = state.selectedType;
   state.user.typeLabel = PERSONALITY[state.selectedType].label;
   state.user.goals = {sales:+document.getElementById('goalSales').value,appo:+document.getElementById('goalAppo').value,meeting:+document.getElementById('goalMeeting').value,contract:+document.getElementById('goalContract').value};
-  await sb.from('profiles').upsert({id:state.userId, name, team, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders});
+  await sb.from('profiles').upsert({id:state.userId, name, team:teamName, team_id:teamId, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders});
   state.crm = defaultCRM();
   state.tasks = defaultTasks();
   document.getElementById('registerPage').style.display='none';
@@ -974,9 +1021,14 @@ async function loadUserData(userId){
     state.user.typeLabel = profile.type_label||'ドライバー型';
     state.user.goals = profile.goals||{sales:500,appo:30,meeting:15,contract:5};
     state.user.isAdmin = profile.is_admin||false;
+    state.user.teamId = profile.team_id||null;
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
     document.getElementById('navAdmin').style.display = 'none';
     document.getElementById('navSectionAdmin').style.display = 'none';
+    if(profile.team_id){
+      const {data:teamData} = await sb.from('teams').select('code,name').eq('id',profile.team_id).single();
+      if(teamData){ state.user.teamCode = teamData.code; state.user.team = teamData.name; }
+    }
   }
   setAdminMode(false);
   const {data:reports, error:repLoadErr} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
@@ -2342,8 +2394,16 @@ function renderMindAnalysis(){
 }
 
 // ===== PROFILE =====
+function copyTeamCode(){
+  navigator.clipboard.writeText(state.user.teamCode||'');
+  showNotif('チームコードをコピーしました');
+}
 let chartGrowth;
 function initProfile(){
+  if(state.user.teamCode){
+    document.getElementById('teamCodeArea').style.display='flex';
+    document.getElementById('teamCodeVal').textContent=state.user.teamCode;
+  }
   const p=PERSONALITY[state.user.type];
   document.getElementById('personalityResult').innerHTML=`
     <div style="text-align:center;padding:12px 0">
