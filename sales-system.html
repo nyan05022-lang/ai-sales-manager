@@ -2641,10 +2641,6 @@ function showAdminMemberDetail(userId){
       <div class="kpi-card"><div class="kpi-label">KPI達成率</div><div class="kpi-val" style="color:var(--purple)">${x.kpi}%</div></div>
       <div class="kpi-card"><div class="kpi-label">最終日報</div><div class="kpi-val" style="font-size:14px;color:${x.daysSinceReport>=3?'var(--red)':'var(--text)'}">${x.lastReportDate||'なし'}</div></div>
     </div>
-    <div class="grid-2 mb-16" style="gap:16px">
-      <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">売上推移（過去6ヶ月）</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberSalesChart"></canvas></div></div>
-      <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">KPI達成率推移（過去6ヶ月）</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberKpiChart"></canvas></div></div>
-    </div>
     <h4 class="mb-8" style="font-size:13px">直近の日報</h4>
     <table class="mb-16"><thead><tr><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th></tr></thead>
       <tbody>${myReports.map(r=>`<tr><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td></tr>`).join('')||'<tr><td colspan="6" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
@@ -2662,7 +2658,6 @@ function showAdminMemberDetail(userId){
       <div id="adminFbHistory">読込中...</div>
     </div>`;
   loadAdminFbHistory(userId);
-  renderAdminMemberCharts(userId, p);
 }
 let chartAdminMemberSales, chartAdminMemberKpi;
 function renderAdminMemberCharts(userId, p){
@@ -2765,12 +2760,17 @@ function renderAdminKpiPerson(userId){
   if(!userId){el.innerHTML='';return;}
   const p = _adminData.profiles.find(x=>x.id===userId);
   const x = adminMemberStats(p);
-  el.innerHTML = `<div class="grid-4">
+  el.innerHTML = `<div class="grid-4 mb-16">
     <div class="kpi-card"><div class="kpi-label">今月売上</div><div class="kpi-val text-green">¥${x.sales}万</div></div>
     <div class="kpi-card"><div class="kpi-label">アポ数</div><div class="kpi-val text-blue">${x.appo}件</div></div>
     <div class="kpi-card"><div class="kpi-label">成約数</div><div class="kpi-val text-amber">${x.contract}件</div></div>
     <div class="kpi-card"><div class="kpi-label">スキル平均</div><div class="kpi-val" style="color:var(--purple)">${x.skillAvg!=null?x.skillAvg+'点':'-'}</div></div>
+  </div>
+  <div class="grid-2" style="gap:16px">
+    <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">売上推移（過去6ヶ月）</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberSalesChart"></canvas></div></div>
+    <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">KPI達成率推移（過去6ヶ月）</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberKpiChart"></canvas></div></div>
   </div>`;
+  renderAdminMemberCharts(userId, p);
 }
 
 function renderAdminReports(){
