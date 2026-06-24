@@ -996,7 +996,9 @@ async function completeRegister(){
   state.user.type = state.selectedType;
   state.user.typeLabel = PERSONALITY[state.selectedType].label;
   state.user.goals = {sales:+document.getElementById('goalSales').value,appo:+document.getElementById('goalAppo').value,meeting:+document.getElementById('goalMeeting').value,contract:+document.getElementById('goalContract').value};
-  await sb.from('profiles').upsert({id:state.userId, name, team:teamName, team_id:teamId, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders});
+  const isCreator = regData.mode==='create';
+  state.user.isAdmin = isCreator;
+  await sb.from('profiles').upsert({id:state.userId, name, team:teamName, team_id:teamId, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders, is_admin:isCreator});
   state.crm = defaultCRM();
   state.tasks = defaultTasks();
   document.getElementById('registerPage').style.display='none';
