@@ -284,18 +284,18 @@ tr:hover td{background:var(--bg3)}
       <span><i class="ti ti-rocket" style="color:var(--blue)"></i> AI営業</span>
       <small>Sales Manager Pro</small>
     </div>
-    <div class="sidebar-nav">
-      <div class="nav-section">メイン</div>
-      <div class="nav-item active" onclick="showPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>ダッシュボード</span></div>
-      <div class="nav-item" onclick="showPage('report',this)"><i class="ti ti-file-text"></i><span>日報入力</span></div>
-      <div class="nav-item" onclick="showPage('kpi',this)"><i class="ti ti-microphone"></i><span>営業分析KPI</span></div>
-      <div class="nav-item" onclick="showPage('ranking',this)"><i class="ti ti-trophy"></i><span>チームランキング</span></div>
-      <div class="nav-section">案件管理</div>
-      <div class="nav-item" onclick="showPage('crm',this)"><i class="ti ti-building"></i><span>顧客・案件管理</span></div>
-      <div class="nav-item" onclick="showPage('tasks',this)"><i class="ti ti-check-square"></i><span>タスク管理</span></div>
-      <div class="nav-section">AI機能</div>
-      <div class="nav-item" onclick="showPage('coach',this)"><i class="ti ti-brain"></i><span>AIコーチ</span></div>
-      <div class="nav-item" onclick="showPage('mind',this)"><i class="ti ti-heart"></i><span>マインド成長</span></div>
+    <div class="sidebar-nav" id="sidebarNav">
+      <div class="nav-section staff-nav">メイン</div>
+      <div class="nav-item active staff-nav" onclick="showPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>ダッシュボード</span></div>
+      <div class="nav-item staff-nav" onclick="showPage('report',this)"><i class="ti ti-file-text"></i><span>日報入力</span></div>
+      <div class="nav-item staff-nav" onclick="showPage('kpi',this)"><i class="ti ti-microphone"></i><span>営業分析KPI</span></div>
+      <div class="nav-item staff-nav" onclick="showPage('ranking',this)"><i class="ti ti-trophy"></i><span>チームランキング</span></div>
+      <div class="nav-section staff-nav">案件管理</div>
+      <div class="nav-item staff-nav" onclick="showPage('crm',this)"><i class="ti ti-building"></i><span>顧客・案件管理</span></div>
+      <div class="nav-item staff-nav" onclick="showPage('tasks',this)"><i class="ti ti-check-square"></i><span>タスク管理</span></div>
+      <div class="nav-section staff-nav">AI機能</div>
+      <div class="nav-item staff-nav" onclick="showPage('coach',this)"><i class="ti ti-brain"></i><span>AIコーチ</span></div>
+      <div class="nav-item staff-nav" onclick="showPage('mind',this)"><i class="ti ti-heart"></i><span>マインド成長</span></div>
       <div class="nav-section">設定</div>
       <div class="nav-item" onclick="showPage('profile',this)"><i class="ti ti-user-circle"></i><span>プロフィール</span></div>
       <div class="nav-section" id="navSectionAdmin" style="display:none">管理者</div>
@@ -892,7 +892,11 @@ async function doAdminLogin(){
   document.getElementById('loginPage').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
+  setAdminMode(true);
   showPage('admin', document.getElementById('navAdmin'));
+}
+function setAdminMode(on){
+  document.querySelectorAll('.staff-nav').forEach(e=>e.style.display = on?'none':'');
 }
 async function doLogin(){
   const email = document.getElementById('loginEmail').value;
@@ -972,6 +976,7 @@ async function loadUserData(userId){
     document.getElementById('navAdmin').style.display = state.user.isAdmin?'flex':'none';
     document.getElementById('navSectionAdmin').style.display = state.user.isAdmin?'block':'none';
   }
+  setAdminMode(false);
   const {data:reports, error:repLoadErr} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
   if(repLoadErr) console.error('日報読込エラー:', repLoadErr);
   console.log('日報取得件数:', (reports||[]).length, 'userId:', userId);
