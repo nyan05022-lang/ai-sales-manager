@@ -2586,43 +2586,78 @@ function renderAdminDashboard(){
       </div>
     </div>
     <div class="card mt-16">
-      <h3 class="mb-12">組織売上・平均KPI達成率の推移（過去6ヶ月）</h3>
+      <div class="flex-between mb-12">
+        <h3>組織売上・平均KPI達成率の推移</h3>
+        <div class="tabs" id="adminTrendTabs">
+          <div class="tab active" onclick="switchAdminTrendMode('day',this)">日別</div>
+          <div class="tab" onclick="switchAdminTrendMode('month',this)">月別</div>
+        </div>
+      </div>
       <div class="chart-wrap" style="height:240px"><canvas id="adminOrgTrendChart"></canvas></div>
     </div>`;
   renderAdminOrgTrendChart(profiles);
 }
 let chartAdminOrgTrend;
+let adminTrendMode = 'day';
+let _adminTrendProfiles = null;
+function switchAdminTrendMode(mode, el){
+  adminTrendMode = mode;
+  document.querySelectorAll('#adminTrendTabs .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderAdminOrgTrendChart(_adminTrendProfiles);
+}
 function renderAdminOrgTrendChart(profiles){
+  _adminTrendProfiles = profiles;
   const now = new Date();
-  const monthLabels=[], salesData=[], kpiData=[];
-  for(let i=5;i>=0;i--){
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    const prefix = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    monthLabels.push(`${d.getMonth()+1}月`);
-    let monthTotalSales = 0;
-    let kpiSum = 0;
-    profiles.forEach(p=>{
-      const reps = _adminData.reports.filter(r=>r.user_id===p.id && r.date && r.date.startsWith(prefix));
-      const sales = reps.reduce((s,r)=>s+(r.sales||0),0);
-      monthTotalSales += sales;
-      const goal = p.goals?.sales||500;
-      kpiSum += goal>0?Math.round(sales/goal*100):0;
-    });
-    salesData.push(monthTotalSales);
-    kpiData.push(profiles.length>0?Math.round(kpiSum/profiles.length):0);
+  let labels=[], salesData=[], kpiData=[];
+
+  if(adminTrendMode==='day'){
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+    for(let d=1; d<=daysInMonth; d++){
+      const ds = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      labels.push(`${now.getMonth()+1}/${d}`);
+      let dayTotalSales = 0, kpiSum = 0;
+      profiles.forEach(p=>{
+        const reps = _adminData.reports.filter(r=>r.user_id===p.id && r.date===ds);
+        const sales = reps.reduce((s,r)=>s+(r.sales||0),0);
+        dayTotalSales += sales;
+        const goal = (p.goals?.sales||500)/daysInMonth;
+        kpiSum += goal>0?Math.round(sales/goal*100):0;
+      });
+      salesData.push(dayTotalSales);
+      kpiData.push(profiles.length>0?Math.round(kpiSum/profiles.length):0);
+    }
+  } else {
+    for(let i=5;i>=0;i--){
+      const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const prefix = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      labels.push(`${d.getMonth()+1}月`);
+      let monthTotalSales = 0, kpiSum = 0;
+      profiles.forEach(p=>{
+        const reps = _adminData.reports.filter(r=>r.user_id===p.id && r.date && r.date.startsWith(prefix));
+        const sales = reps.reduce((s,r)=>s+(r.sales||0),0);
+        monthTotalSales += sales;
+        const goal = p.goals?.sales||500;
+        kpiSum += goal>0?Math.round(sales/goal*100):0;
+      });
+      salesData.push(monthTotalSales);
+      kpiData.push(profiles.length>0?Math.round(kpiSum/profiles.length):0);
+    }
   }
+
   if(chartAdminOrgTrend){chartAdminOrgTrend.destroy();}
   const canvas = document.getElementById('adminOrgTrendChart');
   if(!canvas) return;
   chartAdminOrgTrend = new Chart(canvas.getContext('2d'), {
     type:'line',
-    data:{labels:monthLabels, datasets:[
-      {label:'組織売上（万円）',data:salesData,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.1)',tension:.4,fill:true,yAxisID:'y',pointRadius:4},
-      {label:'平均KPI達成率（%）',data:kpiData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3],pointRadius:4}
+    data:{labels, datasets:[
+      {label:'組織売上（万円）',data:salesData,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.1)',tension:.4,fill:true,yAxisID:'y',pointRadius:3},
+      {label:'平均KPI達成率（%）',data:kpiData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3],pointRadius:3}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{labels:{font:{size:11}}}},
       scales:{
+        x:{ticks:{maxRotation:45,autoSkip:true,maxTicksLimit:15,font:{size:10}}},
         y:{position:'left',ticks:{callback:v=>v+'万'}},
         y1:{position:'right',ticks:{callback:v=>v+'%'},grid:{drawOnChartArea:false}}
       }
