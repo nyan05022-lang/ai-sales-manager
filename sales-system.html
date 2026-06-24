@@ -741,6 +741,7 @@ tr:hover td{background:var(--bg3)}
           <div class="tab" onclick="switchAdminTab('members',this)">👥 メンバー管理</div>
           <div class="tab" onclick="switchAdminTab('kpi',this)">📈 KPI分析</div>
           <div class="tab" onclick="switchAdminTab('reports',this)">📝 日報管理</div>
+          <div class="tab" onclick="switchAdminTab('mind',this)">🧠 マインド管理</div>
         </div>
         <div id="adminContent" style="margin-top:16px"></div>
       </div>
@@ -2279,8 +2280,9 @@ function updateMindScore(){
 }
 
 // MBI（Maslach Burnout Inventory）の3要素（疲弊・シニシズム・効力感低下）を参考にした多面的リスク評価
-function computeBurnoutRisk(){
-  const window = mindJournals.slice(-14); // 直近14回分
+function calcBurnout(journals){
+  const window = journals.slice(-14); // 直近14回分
+  if(window.length===0) return null;
   const valOf = (j,k) => j[k]!=null ? j[k] : 3;
   const avgOf = (arr,k) => arr.reduce((s,j)=>s+valOf(j,k),0)/arr.length;
 
@@ -2290,15 +2292,12 @@ function computeBurnoutRisk(){
   const openness = avgOf(window,'openness');
   const efficacy = avgOf(window,'efficacy');
 
-  // 各要素を0-100のリスクスコアに変換（1点=リスク高、5点=リスク低）
   const toRisk = v => Math.round((5-v)/4*100);
-  const exhaustion = toRisk((resilience+persistence)/2);      // 疲弊（回復力・継続力の低下）
-  const cynicism = toRisk((agency+openness)/2);                 // シニシズム（主体性・素直さの低下＝心理的離脱）
-  const reducedEfficacy = toRisk(efficacy);                     // 効力感の低下
+  const exhaustion = toRisk((resilience+persistence)/2);
+  const cynicism = toRisk((agency+openness)/2);
+  const reducedEfficacy = toRisk(efficacy);
 
-  // トレンド検出：前半と後半を比較して悪化傾向を検出
-  let trendBonus = 0;
-  let trendNote = '';
+  let trendBonus = 0, trendNote = '';
   if(window.length>=4){
     const half = Math.floor(window.length/2);
     const firstHalf = window.slice(0,half);
@@ -2308,7 +2307,6 @@ function computeBurnoutRisk(){
     if(o2 < o1 - 0.4){ trendBonus = 15; trendNote = '直近の記録で総合スコアが悪化傾向にあります。'; }
   }
 
-  // 連続低スコア検出（直近から遡って overall < 2.5 が何回連続か）
   let consecutiveLow = 0;
   for(let i=window.length-1;i>=0;i--){
     const j = window[i];
@@ -2324,11 +2322,6 @@ function computeBurnoutRisk(){
   const levelColor = burnoutScore>=75?'var(--red)':burnoutScore>=50?'var(--red)':burnoutScore>=25?'var(--amber)':'var(--green)';
   const labelText = burnoutScore>=75?'要緊急対応：早急な休養・面談を推奨':burnoutScore>=50?'要休息：上司・人事との面談を推奨':burnoutScore>=25?'要注意：セルフケアを意識':'健全な状態';
 
-  document.getElementById('mindBurnout').textContent = level;
-  document.getElementById('mindBurnout').style.color = levelColor;
-  document.getElementById('mindBurnoutLabel').textContent = labelText;
-
-  // 詳細根拠の表示
   const reasons = [];
   if(exhaustion>=50) reasons.push(`疲弊度が高い（レジリエンス${resilience.toFixed(1)}・継続力${persistence.toFixed(1)} / 5）`);
   if(cynicism>=50) reasons.push(`心理的離脱の兆候（主体性${agency.toFixed(1)}・素直さ${openness.toFixed(1)} / 5）`);
@@ -2337,18 +2330,28 @@ function computeBurnoutRisk(){
   if(consecutiveLow>=2) reasons.push(`直近${consecutiveLow}回連続でスコアが低水準です。`);
   if(reasons.length===0) reasons.push('現時点で特筆すべきリスク要因は見られません。');
 
+  const avgMood = journals.reduce((s,j)=>s+j.mood,0)/journals.length;
+  return {burnoutScore, level, levelColor, labelText, exhaustion, cynicism, reducedEfficacy, reasons, avgMood, mindScore:Math.round(avgMood*20)};
+}
+function computeBurnoutRisk(){
+  const r = calcBurnout(mindJournals);
+  if(!r) return;
+  document.getElementById('mindBurnout').textContent = r.level;
+  document.getElementById('mindBurnout').style.color = r.levelColor;
+  document.getElementById('mindBurnoutLabel').textContent = r.labelText;
+
   const detailCard = document.getElementById('mindBurnoutDetailCard');
   const detailEl = document.getElementById('mindBurnoutDetail');
   if(detailCard && detailEl){
     detailCard.style.display='block';
     detailEl.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">疲弊度</div><div style="font-size:18px;font-weight:700;color:${exhaustion>=50?'var(--red)':'var(--green)'}">${exhaustion}</div></div>
-        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">心理的離脱</div><div style="font-size:18px;font-weight:700;color:${cynicism>=50?'var(--red)':'var(--green)'}">${cynicism}</div></div>
-        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">効力感低下</div><div style="font-size:18px;font-weight:700;color:${reducedEfficacy>=50?'var(--red)':'var(--green)'}">${reducedEfficacy}</div></div>
+        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">疲弊度</div><div style="font-size:18px;font-weight:700;color:${r.exhaustion>=50?'var(--red)':'var(--green)'}">${r.exhaustion}</div></div>
+        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">心理的離脱</div><div style="font-size:18px;font-weight:700;color:${r.cynicism>=50?'var(--red)':'var(--green)'}">${r.cynicism}</div></div>
+        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--radius)"><div class="text-xs text-muted">効力感低下</div><div style="font-size:18px;font-weight:700;color:${r.reducedEfficacy>=50?'var(--red)':'var(--green)'}">${r.reducedEfficacy}</div></div>
       </div>
       <ul style="margin:0 0 0 18px;padding:0;font-size:12px;line-height:1.8;color:var(--text)">
-        ${reasons.map(r=>`<li>${r}</li>`).join('')}
+        ${r.reasons.map(x=>`<li>${x}</li>`).join('')}
       </ul>`;
   }
 }
@@ -2519,7 +2522,9 @@ async function loadAdminData(){
   const {data:profiles} = await sb.from('profiles').select('*');
   const {data:reports} = await sb.from('daily_reports').select('*');
   const {data:sessions} = await sb.from('skill_sessions').select('*');
-  _adminData = {profiles:profiles||[], reports:reports||[], sessions:sessions||[]};
+  const {data:journals, error:journalErr} = await sb.from('mind_journals').select('*');
+  if(journalErr) console.error('admin mind_journals error:', journalErr);
+  _adminData = {profiles:profiles||[], reports:reports||[], sessions:sessions||[], journals:journals||[]};
 }
 async function initAdmin(){
   if(!state.user.isAdmin){showNotif('管理者権限がありません');return;}
@@ -2559,6 +2564,86 @@ function renderAdminTab(){
   else if(adminTab==='members') renderAdminMembers();
   else if(adminTab==='kpi') renderAdminKpi();
   else if(adminTab==='reports') renderAdminReports();
+  else if(adminTab==='mind') renderAdminMind();
+}
+function renderAdminMind(){
+  const profiles = _adminData.profiles;
+  const rows = profiles.map(p=>{
+    const journals = _adminData.journals.filter(j=>j.user_id===p.id).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    const burnout = journals.length>0 ? calcBurnout(journals) : null;
+    return {p, journals, burnout};
+  });
+  const highRisk = rows.filter(r=>r.burnout && r.burnout.burnoutScore>=50);
+
+  document.getElementById('adminContent').innerHTML = `
+    <div class="grid-4 mb-16">
+      <div class="kpi-card"><div class="kpi-label">記録ありメンバー</div><div class="kpi-val text-blue">${rows.filter(r=>r.journals.length>0).length} / ${profiles.length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">要注意（高リスク以上）</div><div class="kpi-val text-red">${highRisk.length}</div></div>
+    </div>
+    ${highRisk.length>0?`
+    <div class="card mb-16" style="border:1px solid var(--red)">
+      <h3 class="mb-12" style="color:var(--red)">⚠️ バーンアウトリスク 高〜非常に高い メンバー</h3>
+      ${highRisk.map(r=>`<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div><div style="font-weight:600">${r.p.name||'(未設定)'}</div><div class="text-xs text-muted">${r.p.team||''}</div></div>
+        <div class="flex gap-8" style="align-items:center">
+          <span class="badge badge-red">${r.burnout.level}</span>
+          <button class="btn-ghost btn-sm" onclick="showAdminMindDetail('${r.p.id}')">詳細</button>
+        </div>
+      </div>`).join('')}
+    </div>`:''}
+    <div class="card mb-16">
+      <h3 class="mb-12">メンバー別マインド状況</h3>
+      <table>
+        <thead><tr><th>氏名</th><th>チーム</th><th>記録数</th><th>マインドスコア</th><th>バーンアウトリスク</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr>
+            <td>${r.p.name||'(未設定)'}</td>
+            <td>${r.p.team||''}</td>
+            <td>${r.journals.length}</td>
+            <td>${r.burnout?r.burnout.mindScore+'点':'-'}</td>
+            <td>${r.burnout?`<span class="badge ${r.burnout.burnoutScore>=50?'badge-red':r.burnout.burnoutScore>=25?'badge-amber':'badge-green'}">${r.burnout.level}</span>`:'<span class="text-muted text-xs">記録なし</span>'}</td>
+            <td>${r.journals.length>0?`<button class="btn-ghost btn-sm" onclick="showAdminMindDetail('${r.p.id}')">詳細</button>`:''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="card" id="adminMindDetailCard" style="display:none">
+      <div class="flex-between mb-12"><h3>マインド詳細</h3><i class="ti ti-x" style="cursor:pointer" onclick="document.getElementById('adminMindDetailCard').style.display='none'"></i></div>
+      <div id="adminMindDetailContent"></div>
+    </div>`;
+}
+let chartAdminMind;
+function showAdminMindDetail(userId){
+  const p = _adminData.profiles.find(x=>x.id===userId);
+  const journals = _adminData.journals.filter(j=>j.user_id===userId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const burnout = calcBurnout(journals);
+  const card = document.getElementById('adminMindDetailCard');
+  card.style.display='block';
+  document.getElementById('adminMindDetailContent').innerHTML = `
+    <div class="grid-4 mb-16">
+      <div class="kpi-card"><div class="kpi-label">${p.name}</div><div class="kpi-val text-blue" style="font-size:14px">${p.team||''}</div></div>
+      <div class="kpi-card"><div class="kpi-label">マインドスコア</div><div class="kpi-val" style="color:var(--purple)">${burnout.mindScore}</div></div>
+      <div class="kpi-card"><div class="kpi-label">バーンアウトリスク</div><div class="kpi-val" style="color:${burnout.levelColor}">${burnout.level}</div></div>
+      <div class="kpi-card"><div class="kpi-label">記録回数</div><div class="kpi-val text-green">${journals.length}</div></div>
+    </div>
+    <div class="card mb-16" style="padding:12px;background:var(--bg3)">
+      <div class="text-sm mb-8" style="font-weight:600">${burnout.labelText}</div>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:12px;line-height:1.8">${burnout.reasons.map(r=>`<li>${r}</li>`).join('')}</ul>
+    </div>
+    <div class="chart-wrap mb-16" style="height:200px"><canvas id="adminMindChart"></canvas></div>
+    <h4 class="mb-8" style="font-size:13px">直近のジャーナル</h4>
+    <table><thead><tr><th>日付</th><th>気分</th><th>メモ</th></tr></thead>
+      <tbody>${[...journals].reverse().slice(0,10).map(j=>`<tr><td>${j.date}</td><td>${j.mood}/5</td><td style="font-size:12px">${j.note||''}</td></tr>`).join('')||'<tr><td colspan="3" class="text-muted text-sm">記録なし</td></tr>'}</tbody>
+    </table>`;
+  if(chartAdminMind){chartAdminMind.destroy();}
+  const canvas = document.getElementById('adminMindChart');
+  const labels = journals.map(j=>j.date.slice(5));
+  const moodScore = journals.map(j=>j.mood*20);
+  chartAdminMind = new Chart(canvas.getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[{label:'マインドスコア',data:moodScore,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.1)',tension:.4,fill:true,pointRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{font:{size:10}}},x:{ticks:{font:{size:10},maxRotation:45}}}}
+  });
 }
 
 function renderAdminDashboard(){
