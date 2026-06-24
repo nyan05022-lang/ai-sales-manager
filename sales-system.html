@@ -1536,6 +1536,20 @@ function generateKpiAI(){
       ? `過去${skillSessions.length}回の商談データと比較すると、`
       : '初回の商談評価として、';
 
+    // 未チェック項目を具体的に特定
+    const missedItemsOf = key => {
+      const def = CHECKLIST_DEF[key];
+      const checks = checkState[key]||{};
+      return def.items.filter((item,i)=>!checks[i]);
+    };
+    const missed1 = missedItemsOf(weak1[0]);
+    const missed2 = missedItemsOf(weak2[0]);
+    const missedHtml = (label,items) => items.length===0 ? '' : `
+        <div style="margin-top:6px;padding:8px 10px;background:var(--bg3);border-radius:var(--radius);font-size:12px">
+          <strong style="color:var(--red)">${label}で未実施だった項目：</strong>
+          <ul style="margin:4px 0 0 16px;padding:0">${items.map(it=>`<li style="margin-bottom:2px">${it}</li>`).join('')}</ul>
+        </div>`;
+
     document.getElementById('kpiAIText').innerHTML = `
       <div style="margin-bottom:12px">
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">📊 今回の商談スコア詳細</div>
@@ -1546,13 +1560,16 @@ function generateKpiAI(){
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">💡 AI分析コメント</div>
         <div style="font-size:13px;line-height:1.9;color:var(--text)">
           ${sessionInfo}<strong>${getLabel(strong1[0])}（${strong1[1]}点）</strong>が最大の強みです。${strongAdvice}<br><br>
-          最も強化が必要な<strong>${getLabel(weak1[0])}（${weak1[1]}点）</strong>については、${weakAdvice1}<br><br>
+          最も強化が必要な<strong>${getLabel(weak1[0])}（${weak1[1]}点）</strong>については、${weakAdvice1}
+          ${missedHtml(getLabel(weak1[0]), missed1)}
+          <br>
           次に注力すべき<strong>${getLabel(weak2[0])}（${weak2[1]}点）</strong>は、${weakAdvice2}
+          ${missedHtml(getLabel(weak2[0]), missed2)}
         </div>
       </div>`;
 
     const actions = [
-      `【最優先】${getLabel(weak1[0])}強化：${adviceMap[weak1[0]][0].slice(0,40)}…`,
+      `【最優先】${getLabel(weak1[0])}強化：${missed1.length>0?'次回は「'+missed1[0]+'」を必ず実施しましょう。':adviceMap[weak1[0]][0].slice(0,40)+'…'}`,
       `【継続】${getLabel(strong1[0])}の強みをさらに伸ばす：${adviceMap[strong1[0]][0].slice(0,40)}…`,
       `【習慣化】毎商談後にこのチェックリストを記録し、スコア推移を確認する`,
     ];
