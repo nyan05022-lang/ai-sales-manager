@@ -2677,9 +2677,37 @@ function showAdminMemberDetail(userId){
       <tbody>${myReports.map(r=>`<tr><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td></tr>`).join('')||'<tr><td colspan="6" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
     </table>
     <h4 class="mb-8" style="font-size:13px">直近のスキル評価</h4>
-    <table><thead><tr><th>商談名</th><th>日付</th><th>総合点</th></tr></thead>
+    <table class="mb-16"><thead><tr><th>商談名</th><th>日付</th><th>総合点</th></tr></thead>
       <tbody>${mySessions.map(s=>`<tr><td>${s.deal_name||'(未入力)'}</td><td>${s.date}</td><td>${Math.round((s.rapport+s.hearing+s.deepdive+s.proposal+s.closing)/5)}点</td></tr>`).join('')||'<tr><td colspan="3" class="text-muted text-sm">記録なし</td></tr>'}</tbody>
-    </table>`;
+    </table>
+    <hr class="separator">
+    <h4 class="mb-8" style="font-size:13px">フィードバックを送る</h4>
+    <div class="form-group"><textarea id="adminFbText" rows="3" placeholder="このメンバーへのフィードバックを入力..."></textarea></div>
+    <button class="btn-primary btn-sm" onclick="sendAdminFeedback('${userId}')"><i class="ti ti-send"></i> 送信</button>
+    <div class="mt-16">
+      <h4 class="mb-8" style="font-size:13px">送信済みフィードバック</h4>
+      <div id="adminFbHistory">読込中...</div>
+    </div>`;
+  loadAdminFbHistory(userId);
+}
+async function loadAdminFbHistory(userId){
+  const {data} = await sb.from('manager_feedback').select('*').eq('user_id',userId);
+  const list = (data||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const el = document.getElementById('adminFbHistory');
+  if(!el) return;
+  el.innerHTML = list.length===0
+    ? '<p class="text-muted text-sm">まだ送信していません</p>'
+    : list.map(f=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)"><div class="text-xs text-muted">${f.date}（${f.from_name||'管理者'}）</div><p style="font-size:12px">${f.text}</p></div>`).join('');
+}
+async function sendAdminFeedback(userId){
+  const text = document.getElementById('adminFbText').value.trim();
+  if(!text){showNotif('内容を入力してください');return;}
+  const date = new Date().toISOString().split('T')[0];
+  const {error} = await sb.from('manager_feedback').insert({user_id:userId, from_name:state.user.name+'（管理者）', text, date});
+  if(error){showNotif('送信失敗: '+error.message);return;}
+  document.getElementById('adminFbText').value='';
+  showNotif('フィードバックを送信しました');
+  loadAdminFbHistory(userId);
 }
 async function toggleAdminPermission(userId,newVal){
   const {error} = await sb.from('profiles').update({is_admin:newVal}).eq('id',userId);
