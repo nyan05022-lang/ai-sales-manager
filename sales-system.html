@@ -723,7 +723,7 @@ tr:hover td{background:var(--bg3)}
           </div>
           <div>
             <div class="card mb-16">
-              <div class="flex-between mb-12"><h3>管理者フィードバック</h3><button class="btn-ghost btn-sm" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 追加</button></div>
+              <div class="flex-between mb-12"><h3>管理者フィードバック</h3></div>
               <div id="managerFeedback"></div>
             </div>
             <div class="card">
@@ -749,19 +749,6 @@ tr:hover td{background:var(--bg3)}
         <div id="adminContent" style="margin-top:16px"></div>
       </div>
 
-    </div>
-  </div>
-</div>
-
-<!-- FEEDBACK MODAL -->
-<div class="modal-overlay" id="feedbackModal">
-  <div class="modal">
-    <div class="flex-between mb-16"><h3>管理者フィードバックを追加</h3><i class="ti ti-x" style="cursor:pointer;font-size:18px" onclick="document.getElementById('feedbackModal').classList.remove('open')"></i></div>
-    <div class="form-group"><label>フィードバック者名</label><input type="text" id="fbFrom" placeholder="田中 マネージャー"></div>
-    <div class="form-group"><label>内容</label><textarea id="fbText" rows="4" placeholder="フィードバック内容を入力..."></textarea></div>
-    <div class="flex gap-8 mt-16">
-      <button class="btn-primary" onclick="saveFeedback()">保存</button>
-      <button class="btn-ghost" onclick="document.getElementById('feedbackModal').classList.remove('open')">キャンセル</button>
     </div>
   </div>
 </div>
@@ -2452,24 +2439,6 @@ function initProfile(){
 }
 
 // ===== MANAGER FEEDBACK =====
-function openFeedbackModal(){
-  document.getElementById('fbFrom').value='';
-  document.getElementById('fbText').value='';
-  document.getElementById('feedbackModal').classList.add('open');
-}
-async function saveFeedback(){
-  const from_name = document.getElementById('fbFrom').value.trim();
-  const text = document.getElementById('fbText').value.trim();
-  if(!text){showNotif('内容を入力してください');return;}
-  const date = new Date().toISOString().split('T')[0];
-  if(state.userId){
-    const {error} = await sb.from('manager_feedback').insert({user_id:state.userId,from_name,text,date});
-    if(error){showNotif('保存失敗: '+error.message);return;}
-  }
-  document.getElementById('feedbackModal').classList.remove('open');
-  showNotif('フィードバックを保存しました');
-  loadManagerFeedback();
-}
 async function loadManagerFeedback(){
   const el = document.getElementById('managerFeedback');
   if(!el) return;
@@ -2482,16 +2451,10 @@ async function loadManagerFeedback(){
     : list.map(f=>`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
         <div class="flex-between mb-6">
           <span class="text-sm" style="color:var(--blue)">${f.from_name||'管理者'}</span>
-          <div class="flex gap-8"><span class="text-xs text-muted">${f.date}</span>
-          <button onclick="deleteFeedback('${f.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px"><i class="ti ti-trash"></i></button></div>
+          <span class="text-xs text-muted">${f.date}</span>
         </div>
         <p style="font-size:13px;line-height:1.7;color:var(--text)">${f.text}</p>
       </div>`).join('');
-}
-async function deleteFeedback(id){
-  await sb.from('manager_feedback').delete().eq('id',id);
-  loadManagerFeedback();
-  showNotif('削除しました');
 }
 
 // ===== GOAL EDIT =====
