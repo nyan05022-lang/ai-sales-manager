@@ -2439,13 +2439,19 @@ function initProfile(){
 }
 
 // ===== MANAGER FEEDBACK =====
+function feedbackCutoffDate(){
+  const d = new Date();
+  d.setDate(d.getDate()-2);
+  return d.toISOString().split('T')[0];
+}
 async function loadManagerFeedback(){
   const el = document.getElementById('managerFeedback');
   if(!el) return;
   if(!state.userId){el.innerHTML='<p class="text-muted text-sm">ログイン後に表示されます</p>';return;}
   const {data,error} = await sb.from('manager_feedback').select('*').eq('user_id',state.userId);
   if(error) console.error('manager_feedback load error:',error);
-  const list = (data||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const cutoff = feedbackCutoffDate();
+  const list = (data||[]).filter(f=>f.date>=cutoff).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   el.innerHTML = list.length===0
     ? '<p class="text-muted text-sm">まだフィードバックはありません</p>'
     : list.map(f=>`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
@@ -2655,11 +2661,17 @@ function showAdminMemberDetail(userId){
 }
 async function loadAdminFbHistory(userId){
   const {data} = await sb.from('manager_feedback').select('*').eq('user_id',userId);
-  const list = (data||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const cutoff = feedbackCutoffDate();
+  const all = data||[];
+  const expired = all.filter(f=>f.date<cutoff);
+  if(expired.length>0){
+    await sb.from('manager_feedback').delete().in('id', expired.map(f=>f.id));
+  }
+  const list = all.filter(f=>f.date>=cutoff).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const el = document.getElementById('adminFbHistory');
   if(!el) return;
   el.innerHTML = list.length===0
-    ? '<p class="text-muted text-sm">まだ送信していません</p>'
+    ? '<p class="text-muted text-sm">まだ送信していません（2日経過した送信分は自動的に消えます）</p>'
     : list.map(f=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)"><div class="text-xs text-muted">${f.date}（${f.from_name||'管理者'}）</div><p style="font-size:12px">${f.text}</p></div>`).join('');
 }
 async function sendAdminFeedback(userId){
