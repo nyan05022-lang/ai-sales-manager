@@ -893,6 +893,8 @@ async function doAdminLogin(){
   document.getElementById('app').style.display='flex';
   initApp();
   setAdminMode(true);
+  document.getElementById('navAdmin').style.display = 'flex';
+  document.getElementById('navSectionAdmin').style.display = 'block';
   showPage('admin', document.getElementById('navAdmin'));
 }
 function setAdminMode(on){
@@ -973,8 +975,8 @@ async function loadUserData(userId){
     state.user.goals = profile.goals||{sales:500,appo:30,meeting:15,contract:5};
     state.user.isAdmin = profile.is_admin||false;
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
-    document.getElementById('navAdmin').style.display = state.user.isAdmin?'flex':'none';
-    document.getElementById('navSectionAdmin').style.display = state.user.isAdmin?'block':'none';
+    document.getElementById('navAdmin').style.display = 'none';
+    document.getElementById('navSectionAdmin').style.display = 'none';
   }
   setAdminMode(false);
   const {data:reports, error:repLoadErr} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
