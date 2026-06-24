@@ -2584,7 +2584,50 @@ function renderAdminDashboard(){
         <h3 class="mb-12">要フォローメンバー</h3>
         ${bottom?`<div class="flex-between" style="padding:8px 0"><div><div style="font-weight:600">${bottom.p.name||'(未設定)'}</div><div class="text-xs text-muted">${bottom.p.team||''}</div></div><div style="font-weight:700;color:var(--red)">¥${bottom.sales}万 / KPI ${bottom.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
       </div>
+    </div>
+    <div class="card mt-16">
+      <h3 class="mb-12">組織売上・平均KPI達成率の推移（過去6ヶ月）</h3>
+      <div class="chart-wrap" style="height:240px"><canvas id="adminOrgTrendChart"></canvas></div>
     </div>`;
+  renderAdminOrgTrendChart(profiles);
+}
+let chartAdminOrgTrend;
+function renderAdminOrgTrendChart(profiles){
+  const now = new Date();
+  const monthLabels=[], salesData=[], kpiData=[];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const prefix = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    monthLabels.push(`${d.getMonth()+1}月`);
+    let monthTotalSales = 0;
+    let kpiSum = 0;
+    profiles.forEach(p=>{
+      const reps = _adminData.reports.filter(r=>r.user_id===p.id && r.date && r.date.startsWith(prefix));
+      const sales = reps.reduce((s,r)=>s+(r.sales||0),0);
+      monthTotalSales += sales;
+      const goal = p.goals?.sales||500;
+      kpiSum += goal>0?Math.round(sales/goal*100):0;
+    });
+    salesData.push(monthTotalSales);
+    kpiData.push(profiles.length>0?Math.round(kpiSum/profiles.length):0);
+  }
+  if(chartAdminOrgTrend){chartAdminOrgTrend.destroy();}
+  const canvas = document.getElementById('adminOrgTrendChart');
+  if(!canvas) return;
+  chartAdminOrgTrend = new Chart(canvas.getContext('2d'), {
+    type:'line',
+    data:{labels:monthLabels, datasets:[
+      {label:'組織売上（万円）',data:salesData,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.1)',tension:.4,fill:true,yAxisID:'y',pointRadius:4},
+      {label:'平均KPI達成率（%）',data:kpiData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3],pointRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{
+        y:{position:'left',ticks:{callback:v=>v+'万'}},
+        y1:{position:'right',ticks:{callback:v=>v+'%'},grid:{drawOnChartArea:false}}
+      }
+    }
+  });
 }
 
 function renderAdminMembers(){
