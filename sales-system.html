@@ -291,6 +291,8 @@ tr:hover td{background:var(--bg3)}
       <div class="nav-item" onclick="showPage('mind',this)"><i class="ti ti-heart"></i><span>マインド成長</span></div>
       <div class="nav-section">設定</div>
       <div class="nav-item" onclick="showPage('profile',this)"><i class="ti ti-user-circle"></i><span>プロフィール</span></div>
+      <div class="nav-section" id="navSectionAdmin" style="display:none">管理者</div>
+      <div class="nav-item" id="navAdmin" style="display:none" onclick="showPage('admin',this)"><i class="ti ti-shield-lock"></i><span>管理者画面</span></div>
     </div>
     <div class="sidebar-user">
       <div class="flex-between">
@@ -715,6 +717,21 @@ tr:hover td{background:var(--bg3)}
         </div>
       </div>
 
+      <!-- ADMIN -->
+      <div id="pg-admin" class="page">
+        <div class="flex-between mb-16">
+          <div><h2><i class="ti ti-shield-lock"></i> 管理者画面</h2><p class="text-muted text-sm">組織全体のメンバー・KPI・日報を管理します</p></div>
+          <span class="badge badge-red">管理者限定</span>
+        </div>
+        <div class="tabs" id="adminTabs" style="flex-wrap:wrap">
+          <div class="tab active" onclick="switchAdminTab('dashboard',this)">ダッシュボード</div>
+          <div class="tab" onclick="switchAdminTab('members',this)">👥 メンバー管理</div>
+          <div class="tab" onclick="switchAdminTab('kpi',this)">📈 KPI分析</div>
+          <div class="tab" onclick="switchAdminTab('reports',this)">📝 日報管理</div>
+        </div>
+        <div id="adminContent" style="margin-top:16px"></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -921,7 +938,10 @@ async function loadUserData(userId){
     state.user.type = profile.type||'driver';
     state.user.typeLabel = profile.type_label||'ドライバー型';
     state.user.goals = profile.goals||{sales:500,appo:30,meeting:15,contract:5};
+    state.user.isAdmin = profile.is_admin||false;
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
+    document.getElementById('navAdmin').style.display = state.user.isAdmin?'flex':'none';
+    document.getElementById('navSectionAdmin').style.display = state.user.isAdmin?'block':'none';
   }
   const {data:reports, error:repLoadErr} = await sb.from('daily_reports').select('*').eq('user_id',userId).order('created_at',{ascending:false});
   if(repLoadErr) console.error('日報読込エラー:', repLoadErr);
@@ -2421,9 +2441,245 @@ async function saveProfileEdit(){
   showNotif('プロフィールを保存しました');
 }
 
+// ===== ADMIN =====
+let adminTab = 'dashboard';
+let _adminData = null;
+async function loadAdminData(){
+  const {data:profiles} = await sb.from('profiles').select('*');
+  const {data:reports} = await sb.from('daily_reports').select('*');
+  const {data:sessions} = await sb.from('skill_sessions').select('*');
+  _adminData = {profiles:profiles||[], reports:reports||[], sessions:sessions||[]};
+}
+async function initAdmin(){
+  if(!state.user.isAdmin){showNotif('管理者権限がありません');return;}
+  document.getElementById('adminContent').innerHTML = '<p class="text-muted text-sm">読込中...</p>';
+  await loadAdminData();
+  renderAdminTab();
+}
+function switchAdminTab(tab,el){
+  adminTab = tab;
+  document.querySelectorAll('#adminTabs .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderAdminTab();
+}
+function adminMonthPrefix(){
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+function adminMemberStats(p){
+  const prefix = adminMonthPrefix();
+  const myReports = _adminData.reports.filter(r=>r.user_id===p.id);
+  const monthReports = myReports.filter(r=>r.date&&r.date.startsWith(prefix));
+  const sales = monthReports.reduce((s,r)=>s+(r.sales||0),0);
+  const appo = monthReports.reduce((s,r)=>s+(r.appo||0),0);
+  const contract = monthReports.reduce((s,r)=>s+(r.contract||0),0);
+  const goal = p.goals?.sales||500;
+  const kpi = goal>0?Math.round(sales/goal*100):0;
+  const mySessions = _adminData.sessions.filter(s=>s.user_id===p.id);
+  const skillAvg = mySessions.length>0
+    ? Math.round(mySessions.reduce((s,r)=>s+((r.rapport+r.hearing+r.deepdive+r.proposal+r.closing)/5),0)/mySessions.length)
+    : null;
+  const lastReportDate = myReports.length>0 ? myReports.map(r=>r.date).sort().reverse()[0] : null;
+  const daysSinceReport = lastReportDate ? Math.floor((new Date()-new Date(lastReportDate))/86400000) : null;
+  return {sales,appo,contract,kpi,skillAvg,lastReportDate,daysSinceReport,reportCount:monthReports.length};
+}
+function renderAdminTab(){
+  if(adminTab==='dashboard') renderAdminDashboard();
+  else if(adminTab==='members') renderAdminMembers();
+  else if(adminTab==='kpi') renderAdminKpi();
+  else if(adminTab==='reports') renderAdminReports();
+}
+
+function renderAdminDashboard(){
+  const profiles = _adminData.profiles;
+  const stats = profiles.map(p=>({p,...adminMemberStats(p)}));
+  const totalSales = stats.reduce((s,x)=>s+x.sales,0);
+  const avgKpi = stats.length>0 ? Math.round(stats.reduce((s,x)=>s+x.kpi,0)/stats.length) : 0;
+  const alertCount = stats.filter(x=>x.daysSinceReport==null || x.daysSinceReport>=3).length;
+  const sorted = [...stats].sort((a,b)=>b.sales-a.sales);
+  const top = sorted[0], bottom = sorted[sorted.length-1];
+
+  document.getElementById('adminContent').innerHTML = `
+    <div class="grid-4 mb-16">
+      <div class="kpi-card"><div class="kpi-label">総メンバー数</div><div class="kpi-val text-blue">${profiles.length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">今月の組織売上</div><div class="kpi-val text-green">¥${totalSales}万</div></div>
+      <div class="kpi-card"><div class="kpi-label">平均KPI達成率</div><div class="kpi-val" style="color:var(--purple)">${avgKpi}%</div></div>
+      <div class="kpi-card"><div class="kpi-label">要注意メンバー</div><div class="kpi-val text-red">${alertCount}</div></div>
+    </div>
+    <div class="grid-2" style="gap:16px">
+      <div class="card">
+        <h3 class="mb-12">トップパフォーマー</h3>
+        ${top?`<div class="flex-between" style="padding:8px 0"><div><div style="font-weight:600">${top.p.name||'(未設定)'}</div><div class="text-xs text-muted">${top.p.team||''}</div></div><div style="font-weight:700;color:var(--green)">¥${top.sales}万 / KPI ${top.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
+      </div>
+      <div class="card">
+        <h3 class="mb-12">要フォローメンバー</h3>
+        ${bottom?`<div class="flex-between" style="padding:8px 0"><div><div style="font-weight:600">${bottom.p.name||'(未設定)'}</div><div class="text-xs text-muted">${bottom.p.team||''}</div></div><div style="font-weight:700;color:var(--red)">¥${bottom.sales}万 / KPI ${bottom.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
+      </div>
+    </div>`;
+}
+
+function renderAdminMembers(){
+  const profiles = _adminData.profiles;
+  const stats = profiles.map(p=>({p,...adminMemberStats(p)}));
+  document.getElementById('adminContent').innerHTML = `
+    <div class="card mb-16">
+      <h3 class="mb-12">営業マン一覧</h3>
+      <table>
+        <thead><tr><th>氏名</th><th>チーム</th><th>今月売上</th><th>KPI達成率</th><th>スキル平均</th><th>権限</th><th></th></tr></thead>
+        <tbody>
+          ${stats.map(x=>`<tr>
+            <td>${x.p.name||'(未設定)'}</td>
+            <td>${x.p.team||''}</td>
+            <td>¥${x.sales}万</td>
+            <td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td>
+            <td>${x.skillAvg!=null?x.skillAvg+'点':'-'}</td>
+            <td>${x.p.is_admin?'<span class="badge badge-blue">管理者</span>':''}</td>
+            <td><button class="btn-ghost btn-sm" onclick="showAdminMemberDetail('${x.p.id}')">詳細</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="card mb-16">
+      <h3 class="mb-12">権限管理</h3>
+      <table>
+        <thead><tr><th>氏名</th><th>現在の権限</th><th></th></tr></thead>
+        <tbody>
+          ${profiles.map(p=>`<tr>
+            <td>${p.name||'(未設定)'}</td>
+            <td>${p.is_admin?'管理者':'一般メンバー'}</td>
+            <td><button class="btn-ghost btn-sm" onclick="toggleAdminPermission('${p.id}',${!p.is_admin})">${p.is_admin?'権限を解除':'管理者にする'}</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="card" id="adminMemberDetailCard" style="display:none">
+      <div class="flex-between mb-12"><h3>個人詳細</h3><i class="ti ti-x" style="cursor:pointer" onclick="document.getElementById('adminMemberDetailCard').style.display='none'"></i></div>
+      <div id="adminMemberDetailContent"></div>
+    </div>`;
+}
+function showAdminMemberDetail(userId){
+  const p = _adminData.profiles.find(x=>x.id===userId);
+  if(!p) return;
+  const x = adminMemberStats(p);
+  const myReports = _adminData.reports.filter(r=>r.user_id===userId).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
+  const mySessions = _adminData.sessions.filter(s=>s.user_id===userId).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+  const card = document.getElementById('adminMemberDetailCard');
+  card.style.display='block';
+  document.getElementById('adminMemberDetailContent').innerHTML = `
+    <div class="grid-4 mb-16">
+      <div class="kpi-card"><div class="kpi-label">${p.name}</div><div class="kpi-val text-blue" style="font-size:14px">${p.team||''}</div></div>
+      <div class="kpi-card"><div class="kpi-label">今月売上</div><div class="kpi-val text-green">¥${x.sales}万</div></div>
+      <div class="kpi-card"><div class="kpi-label">KPI達成率</div><div class="kpi-val" style="color:var(--purple)">${x.kpi}%</div></div>
+      <div class="kpi-card"><div class="kpi-label">最終日報</div><div class="kpi-val" style="font-size:14px;color:${x.daysSinceReport>=3?'var(--red)':'var(--text)'}">${x.lastReportDate||'なし'}</div></div>
+    </div>
+    <h4 class="mb-8" style="font-size:13px">直近の日報</h4>
+    <table class="mb-16"><thead><tr><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th></tr></thead>
+      <tbody>${myReports.map(r=>`<tr><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td></tr>`).join('')||'<tr><td colspan="6" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
+    </table>
+    <h4 class="mb-8" style="font-size:13px">直近のスキル評価</h4>
+    <table><thead><tr><th>商談名</th><th>日付</th><th>総合点</th></tr></thead>
+      <tbody>${mySessions.map(s=>`<tr><td>${s.deal_name||'(未入力)'}</td><td>${s.date}</td><td>${Math.round((s.rapport+s.hearing+s.deepdive+s.proposal+s.closing)/5)}点</td></tr>`).join('')||'<tr><td colspan="3" class="text-muted text-sm">記録なし</td></tr>'}</tbody>
+    </table>`;
+}
+async function toggleAdminPermission(userId,newVal){
+  const {error} = await sb.from('profiles').update({is_admin:newVal}).eq('id',userId);
+  if(error){showNotif('権限変更失敗: '+error.message);return;}
+  showNotif(newVal?'管理者権限を付与しました':'管理者権限を解除しました');
+  await loadAdminData();
+  renderAdminTab();
+}
+
+function renderAdminKpi(){
+  const profiles = _adminData.profiles;
+  const stats = profiles.map(p=>({p,...adminMemberStats(p)}));
+  const teams = [...new Set(profiles.map(p=>p.team||'未設定'))];
+  const teamAvg = teams.map(t=>{
+    const members = stats.filter(x=>(x.p.team||'未設定')===t);
+    const avgSales = members.length>0?Math.round(members.reduce((s,x)=>s+x.sales,0)/members.length):0;
+    return {team:t,avgSales};
+  });
+  const ranked = [...stats].sort((a,b)=>b.kpi-a.kpi);
+
+  document.getElementById('adminContent').innerHTML = `
+    <div class="card mb-16">
+      <h3 class="mb-12">個人別分析</h3>
+      <select id="adminKpiSelect" onchange="renderAdminKpiPerson(this.value)" style="margin-bottom:12px">
+        <option value="">メンバーを選択...</option>
+        ${profiles.map(p=>`<option value="${p.id}">${p.name||'(未設定)'}</option>`).join('')}
+      </select>
+      <div id="adminKpiPersonResult"></div>
+    </div>
+    <div class="card mb-16">
+      <h3 class="mb-12">チーム分析（平均売上）</h3>
+      <table><thead><tr><th>チーム</th><th>平均売上</th></tr></thead>
+        <tbody>${teamAvg.map(t=>`<tr><td>${t.team}</td><td>¥${t.avgSales}万</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3 class="mb-12">ランキング（KPI達成率順）</h3>
+      <table><thead><tr><th>順位</th><th>氏名</th><th>チーム</th><th>売上</th><th>KPI達成率</th></tr></thead>
+        <tbody>${ranked.map((x,i)=>`<tr><td>${i+1}</td><td>${x.p.name||'(未設定)'}</td><td>${x.p.team||''}</td><td>¥${x.sales}万</td><td>${x.kpi}%</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+function renderAdminKpiPerson(userId){
+  const el = document.getElementById('adminKpiPersonResult');
+  if(!userId){el.innerHTML='';return;}
+  const p = _adminData.profiles.find(x=>x.id===userId);
+  const x = adminMemberStats(p);
+  el.innerHTML = `<div class="grid-4">
+    <div class="kpi-card"><div class="kpi-label">今月売上</div><div class="kpi-val text-green">¥${x.sales}万</div></div>
+    <div class="kpi-card"><div class="kpi-label">アポ数</div><div class="kpi-val text-blue">${x.appo}件</div></div>
+    <div class="kpi-card"><div class="kpi-label">成約数</div><div class="kpi-val text-amber">${x.contract}件</div></div>
+    <div class="kpi-card"><div class="kpi-label">スキル平均</div><div class="kpi-val" style="color:var(--purple)">${x.skillAvg!=null?x.skillAvg+'点':'-'}</div></div>
+  </div>`;
+}
+
+function renderAdminReports(){
+  const reports = [..._adminData.reports].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,50);
+  const profileName = id => (_adminData.profiles.find(p=>p.id===id)||{}).name||'(不明)';
+  const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
+  const alertMembers = stats.filter(x=>x.daysSinceReport==null||x.daysSinceReport>=3);
+
+  const totalSales = stats.reduce((s,x)=>s+x.sales,0);
+  const totalReports = stats.reduce((s,x)=>s+x.reportCount,0);
+  const avgKpi = stats.length>0?Math.round(stats.reduce((s,x)=>s+x.kpi,0)/stats.length):0;
+  const topTeam = (()=>{
+    const teams={};
+    stats.forEach(x=>{const t=x.p.team||'未設定';teams[t]=(teams[t]||0)+x.sales;});
+    const sorted=Object.entries(teams).sort((a,b)=>b[1]-a[1]);
+    return sorted[0]?sorted[0][0]:'-';
+  })();
+
+  document.getElementById('adminContent').innerHTML = `
+    <div class="card mb-16">
+      <h3 class="mb-12">📝 全体日報</h3>
+      <table><thead><tr><th>氏名</th><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th></tr></thead>
+        <tbody>${reports.map(r=>`<tr><td>${profileName(r.user_id)}</td><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td></tr>`).join('')||'<tr><td colspan="7" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="card mb-16">
+      <h3 class="mb-12">⚠️ 要注意メンバー（3日以上未提出）</h3>
+      ${alertMembers.length===0?'<p class="text-muted text-sm">該当者なし</p>':`<table><thead><tr><th>氏名</th><th>チーム</th><th>最終日報</th><th>未提出日数</th></tr></thead>
+        <tbody>${alertMembers.map(x=>`<tr><td>${x.p.name||'(未設定)'}</td><td>${x.p.team||''}</td><td>${x.lastReportDate||'記録なし'}</td><td style="color:var(--red);font-weight:700">${x.daysSinceReport!=null?x.daysSinceReport+'日':'-'}</td></tr>`).join('')}</tbody>
+      </table>`}
+    </div>
+    <div class="card">
+      <h3 class="mb-12">🤖 AI要約</h3>
+      <div class="ai-box"><div class="ai-box-header"><i class="ti ti-sparkles"></i>組織サマリー</div>
+        <p style="font-size:13px;line-height:1.9">
+          今月の組織全体売上は<strong>¥${totalSales}万</strong>、平均KPI達成率は<strong>${avgKpi}%</strong>です。
+          日報提出件数は計${totalReports}件でした。最も売上が高いチームは<strong>${topTeam}</strong>です。
+          ${alertMembers.length>0?`現在<strong style="color:var(--red)">${alertMembers.length}名</strong>のメンバーが3日以上日報を提出していません。早めの声がけを推奨します。`:'全メンバーが直近で日報を提出しており、活動状況は良好です。'}
+        </p>
+      </div>
+    </div>`;
+}
+
 // ===== NAV =====
-const PAGE_TITLES={dashboard:'ダッシュボード',report:'日報入力',kpi:'営業分析KPI',ranking:'チームランキング',crm:'顧客・案件管理',tasks:'タスク管理',coach:'AIコーチ',mind:'マインド成長',profile:'プロフィール'};
+const PAGE_TITLES={dashboard:'ダッシュボード',report:'日報入力',kpi:'営業分析KPI',ranking:'チームランキング',crm:'顧客・案件管理',tasks:'タスク管理',coach:'AIコーチ',mind:'マインド成長',profile:'プロフィール',admin:'管理者画面'};
 function showPage(id,el){
+  if(id==='admin' && !state.user.isAdmin){showNotif('管理者権限がありません');return;}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('pg-'+id).classList.add('active');
@@ -2432,6 +2688,7 @@ function showPage(id,el){
   if(id==='report')renderReportHistory();
   if(id==='dashboard')initDashboard();
   if(id==='profile')initProfile();
+  if(id==='admin')initAdmin();
   if(id==='kpi'){initSliders();loadSkillSessions();}
   if(id==='ranking')initRanking();
   if(id==='mind')loadMindJournals();
