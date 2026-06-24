@@ -2007,13 +2007,44 @@ function getAdvice(){
 // ===== MIND =====
 let chartMind;
 const MIND_QUESTIONS = [
-  {key:'resilience', label:'レジリエンス', q:'今日、うまくいかないことがあっても気持ちを立て直せましたか？'},
-  {key:'agency', label:'主体性', q:'今日、自分から考えて行動できましたか？'},
-  {key:'efficacy', label:'自己効力感', q:'今日、目標を達成できる自信を持てましたか？'},
-  {key:'openness', label:'素直さ', q:'今日、人からの指摘や意見を素直に受け止められましたか？'},
-  {key:'persistence', label:'継続力', q:'今日、最後までやり切ることができましたか？'},
+  {key:'resilience', label:'レジリエンス', items:[
+    'うまくいかないことがあっても気持ちを立て直せた',
+    '失敗を恐れず行動できた',
+    'ネガティブな出来事を引きずらなかった',
+    '困難な状況でも冷静さを保てた',
+    '一度の失敗で諦めずに次の行動に移れた',
+  ]},
+  {key:'agency', label:'主体性', items:[
+    '自分から考えて行動できた',
+    '指示を待たずに動けた',
+    '課題を自分で見つけて対応した',
+    '新しいことに自発的に挑戦した',
+    '改善点を自分で考え実行した',
+  ]},
+  {key:'efficacy', label:'自己効力感', items:[
+    '目標を達成できる自信を持てた',
+    '自分の営業スキルに自信が持てた',
+    '難しい商談でも対応できると感じた',
+    '過去の成功体験を活かせた',
+    '今後の成長にポジティブな見通しを持てた',
+  ]},
+  {key:'openness', label:'素直さ', items:[
+    '人からの指摘を素直に受け止められた',
+    'フィードバックをすぐに行動に反映した',
+    '自分の弱みを認められた',
+    '他人の意見を否定せず聞けた',
+    '学ぶ姿勢を持ち続けられた',
+  ]},
+  {key:'persistence', label:'継続力', items:[
+    '最後までやり切ることができた',
+    '同じ作業を継続して取り組めた',
+    'モチベーションが下がっても継続できた',
+    '日々のルーティンを守れた',
+    '長期目標を見失わなかった',
+  ]},
 ];
-let mindAnswers = {resilience:3,agency:3,efficacy:3,openness:3,persistence:3};
+let mindAnswers = {};
+MIND_QUESTIONS.forEach(q=>{ mindAnswers[q.key] = q.items.map(()=>3); });
 function initMind(){
   const el = document.getElementById('mindAnalysis');
   if(el) el.innerHTML = '<p class="text-muted text-sm">ジャーナルを記録すると分析が表示されます</p>';
@@ -2024,16 +2055,20 @@ function renderMindQuestions(){
   const el = document.getElementById('mindQuestions');
   if(!el) return;
   el.innerHTML = MIND_QUESTIONS.map(q=>`
-    <div style="margin-bottom:12px">
-      <div style="font-size:13px;margin-bottom:6px">${q.label}：<span class="text-muted" style="font-size:12px">${q.q}</span></div>
-      <div class="flex gap-6" id="mindQ_${q.key}">
-        ${[1,2,3,4,5].map(n=>`<span class="personality-card${n===3?' selected':''}" data-val="${n}" style="padding:6px 12px;flex:1;text-align:center;cursor:pointer" onclick="selectMindAnswer('${q.key}',${n},this)">${n}</span>`).join('')}
-      </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--blue)">${q.label}</div>
+      ${q.items.map((item,i)=>`
+        <div style="margin-bottom:8px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${item}</div>
+          <div class="flex gap-6" id="mindQ_${q.key}_${i}">
+            ${[1,2,3,4,5].map(n=>`<span class="personality-card${n===3?' selected':''}" style="padding:5px 10px;flex:1;text-align:center;cursor:pointer;font-size:12px" onclick="selectMindAnswer('${q.key}',${i},${n},this)">${n}</span>`).join('')}
+          </div>
+        </div>`).join('')}
     </div>`).join('');
 }
-function selectMindAnswer(key,val,el){
-  mindAnswers[key]=val;
-  document.querySelectorAll(`#mindQ_${key} .personality-card`).forEach(e=>e.classList.remove('selected'));
+function selectMindAnswer(key,idx,val,el){
+  mindAnswers[key][idx]=val;
+  document.querySelectorAll(`#mindQ_${key}_${idx} .personality-card`).forEach(e=>e.classList.remove('selected'));
   el.classList.add('selected');
 }
 let selectedMood = 3;
@@ -2046,8 +2081,13 @@ function selectMood(n,el){
 async function saveMindJournal(){
   const note = document.getElementById('mindNote').value;
   const date = new Date().toISOString().split('T')[0];
+  const avgAnswers = {};
+  Object.keys(mindAnswers).forEach(k=>{
+    const arr = mindAnswers[k];
+    avgAnswers[k] = Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*10)/10;
+  });
   if(state.userId){
-    await sb.from('mind_journals').insert({user_id:state.userId, date, mood:selectedMood, note, ...mindAnswers});
+    await sb.from('mind_journals').insert({user_id:state.userId, date, mood:selectedMood, note, ...avgAnswers});
   }
   showNotif('ジャーナルを保存しました');
   document.getElementById('mindNote').value='';
