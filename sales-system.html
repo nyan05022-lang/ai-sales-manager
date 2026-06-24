@@ -1033,6 +1033,12 @@ async function loadUserData(userId){
 
 // ===== APP INIT =====
 function initApp(){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('pg-dashboard').classList.add('active');
+  const dashNav = document.querySelector('.nav-item[onclick*="dashboard"]');
+  if(dashNav) dashNav.classList.add('active');
+  document.getElementById('pageTitle').textContent = 'ダッシュボード';
   const u = state.user;
   const h = new Date().getHours();
   const greet = h<12?'おはようございます':h<18?'こんにちは':'こんばんは';
