@@ -1391,41 +1391,52 @@ function renderSkillEval(){
   document.getElementById('evalBadge').textContent = `計${count}件の商談評価`;
 
   // 新しい商談が上になるように最新から順に生成（1件＝1評価）
+  const sessionAdviceMap = {
+    rapport: ['訪問前のリサーチ不足が見受けられます。次回は顧客企業のIR情報・ニュース・SNSを最低5分確認し、商談冒頭でその話題に触れましょう。','名前を呼ぶ・相手のペースに合わせる等の基本動作が抜けています。次回は意識的に相手の名前を会話中2〜3回使いましょう。'],
+    hearing: ['表面的な要望の確認で終わっている可能性があります。「なぜ今それが課題なのか」を深掘りする質問を最低3回入れましょう。','メモを取りながら確認質問（「〇〇とはどういう意味ですか？」）を使えていない様子です。次回意識的に取り入れましょう。'],
+    deepdive: ['課題の重大さを顧客自身に認識させる示唆質問が不足しています。SPIN話法のS（状況）・P（問題）・I（示唆）・N（解決）の順で深掘りしましょう。','「放置した場合どうなるか」を顧客に語らせる質問が弱い傾向です。次回はこの視点を盛り込みましょう。'],
+    proposal: ['提案が一般論にとどまっている可能性があります。顧客の発言を引用して「先ほどの〇〇という課題に対して」と繋げましょう。','ROIや具体的な数字を使った提案ができていません。次回は「導入後3ヶ月で〇〇万円のコスト削減」等、数値を用意しましょう。'],
+    closing: ['クロージングが弱く、次のアクションが曖昧になっている可能性があります。「では次のステップとして」を必ず使いましょう。','決裁者不在時の次回アクション設定が甘い傾向です。具体的な期日を確認しましょう。'],
+  };
   let html = '';
   skillSessions.forEach((s,idx)=>{
     const avgs = {rapport:s.rapport||0,hearing:s.hearing||0,deepdive:s.deepdive||0,proposal:s.proposal||0,closing:s.closing||0};
     const overall = Math.round(Object.values(avgs).reduce((a,b)=>a+b,0)/5);
-    const weakest = Object.entries(avgs).sort((a,b)=>a[1]-b[1])[0];
-    const strongest = Object.entries(avgs).sort((a,b)=>b[1]-a[1])[0];
+    const sortedAsc = Object.entries(avgs).sort((a,b)=>a[1]-b[1]);
+    const sortedDesc = Object.entries(avgs).sort((a,b)=>b[1]-a[1]);
+    const weakest = sortedAsc[0], weak2 = sortedAsc[1];
+    const strongest = sortedDesc[0];
     const weakLabel = CHECKLIST_DEF[weakest[0]].label;
+    const weak2Label = CHECKLIST_DEF[weak2[0]].label;
     const strongLabel = CHECKLIST_DEF[strongest[0]].label;
     const isLatest = idx===0;
-    html += `
-      <div style="border:1px solid var(--border);border-radius:var(--radius2);padding:16px;margin-bottom:14px;background:${isLatest?'#f0f8ff':'#fff'}">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div>
-            <span style="font-size:14px;font-weight:700;color:var(--blue)">${s.deal_name?s.deal_name:'（商談名未入力）'}</span>
-            <span style="font-size:11px;color:var(--text2);margin-left:8px">${s.date||''}</span>
-          </div>
-          ${isLatest?'<span class="badge badge-blue">最新</span>':''}
-          <span style="font-size:12px;color:var(--text2)">総合 <strong>${overall}点</strong></span>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px">
-          ${Object.entries(avgs).map(([k,v])=>`
-            <div style="text-align:center;padding:8px 4px;background:var(--bg3);border-radius:var(--radius)">
-              <div style="font-size:10px;color:var(--text2);margin-bottom:3px">${CHECKLIST_DEF[k].label.replace('力','')}</div>
-              <div style="font-size:18px;font-weight:700;color:${v>=70?'var(--green)':v>=50?'var(--amber)':'var(--red)'}">${v}</div>
-            </div>`).join('')}
-        </div>
-        <div class="ai-box">
-          <div class="ai-box-header"><i class="ti ti-sparkles"></i>AIフィードバック</div>
-          <p style="font-size:12px;line-height:1.8">
-            <strong style="color:var(--green)">強み：${strongLabel}（${strongest[1]}点）</strong> — この強みをさらに磨きましょう。<br>
-            <strong style="color:var(--red)">改善点：${weakLabel}（${weakest[1]}点）</strong> — 次回の商談で集中的に意識してください。<br>
-            ${overall>=80?'非常に高いレベルの商談でした。':overall>=60?'バランスの良い商談でした。':'基礎スキルの底上げが必要な商談でした。'}
-          </p>
-        </div>
-      </div>`;
+    const prevSession = skillSessions[idx+1];
+    let trendText = '';
+    if(prevSession){
+      const prevOverall = Math.round((prevSession.rapport+prevSession.hearing+prevSession.deepdive+prevSession.proposal+prevSession.closing)/5);
+      trendText = overall>prevOverall ? ('前回（'+prevOverall+'点）より<strong style="color:var(--green)">'+(overall-prevOverall)+'pt向上</strong>しています。継続してください。')
+        : overall<prevOverall ? ('前回（'+prevOverall+'点）より<strong style="color:var(--red)">'+(prevOverall-overall)+'pt低下</strong>しています。原因を振り返りましょう。')
+        : '前回と同水準のスコアです。';
+    }
+    html += '<div style="border:1px solid var(--border);border-radius:var(--radius2);padding:16px;margin-bottom:14px;background:'+(isLatest?'#f0f8ff':'#fff')+'">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      + '<div><span style="font-size:14px;font-weight:700;color:var(--blue)">'+(s.deal_name?s.deal_name:'（商談名未入力）')+'</span>'
+      + '<span style="font-size:11px;color:var(--text2);margin-left:8px">'+(s.date||'')+'</span></div>'
+      + (isLatest?'<span class="badge badge-blue">最新</span>':'')
+      + '<span style="font-size:12px;color:var(--text2)">総合 <strong>'+overall+'点</strong></span></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px">'
+      + Object.entries(avgs).map(([k,v])=>'<div style="text-align:center;padding:8px 4px;background:var(--bg3);border-radius:var(--radius)"><div style="font-size:10px;color:var(--text2);margin-bottom:3px">'+CHECKLIST_DEF[k].label.replace('力','')+'</div><div style="font-size:18px;font-weight:700;color:'+(v>=70?'var(--green)':v>=50?'var(--amber)':'var(--red)')+'">'+v+'</div></div>').join('')
+      + '</div>'
+      + '<div class="ai-box"><div class="ai-box-header"><i class="ti ti-sparkles"></i>AIフィードバック</div>'
+      + '<p style="font-size:12px;line-height:1.9">'
+      + '<strong style="color:var(--green)">強み：'+strongLabel+'（'+strongest[1]+'点）</strong> — この商談で最も発揮されたスキルです。次回も意識的に活かしましょう。<br><br>'
+      + '<strong style="color:var(--red)">最重要改善点：'+weakLabel+'（'+weakest[1]+'点）</strong><br>'
+      + sessionAdviceMap[weakest[0]][0] + '<br><br>'
+      + '<strong style="color:var(--amber)">次に強化すべき：'+weak2Label+'（'+weak2[1]+'点）</strong><br>'
+      + sessionAdviceMap[weak2[0]][1] + '<br><br>'
+      + trendText + '<br>'
+      + (overall>=80?'総合的に非常に高いレベルの商談でした。この水準を維持しましょう。':overall>=60?'バランスの良い商談でしたが、上記の改善点を意識すると次回さらに成果が伸びます。':'基礎スキルの底上げが必要です。次回の商談前に上記の改善点を必ず見直してください。')
+      + '</p></div></div>';
   });
   document.getElementById('skillEvalContent').innerHTML = html;
 }
