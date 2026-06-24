@@ -664,18 +664,7 @@ tr:hover td{background:var(--bg3)}
         </div>
         <div class="card mt-16">
           <div class="flex-between mb-12"><h3>振り返りジャーナル</h3><span class="badge badge-blue">今日のエントリー</span></div>
-          <div class="grid-2" style="gap:12px">
-            <div class="form-group"><label>今日の感情 (1-5)</label>
-              <div class="flex gap-8 mt-8">
-                <span id="mood1" class="personality-card" style="padding:10px 14px;flex:1" onclick="selectMood(1,this)">😞</span>
-                <span id="mood2" class="personality-card" style="padding:10px 14px;flex:1" onclick="selectMood(2,this)">😕</span>
-                <span id="mood3" class="personality-card" style="padding:10px 14px;flex:1" onclick="selectMood(3,this)">😐</span>
-                <span id="mood4" class="personality-card" style="padding:10px 14px;flex:1" onclick="selectMood(4,this)">😊</span>
-                <span id="mood5" class="personality-card selected" style="padding:10px 14px;flex:1" onclick="selectMood(5,this)">😄</span>
-              </div>
-            </div>
-            <div class="form-group"><label>今日の一言</label><textarea id="mindNote" rows="3" placeholder="今日感じたこと、気づきなど..."></textarea></div>
-          </div>
+          <div class="form-group"><label>今日の一言</label><textarea id="mindNote" rows="3" placeholder="今日感じたこと、気づきなど..."></textarea></div>
           <hr class="separator">
           <h3 style="font-size:14px;margin-bottom:10px">マインド質問チェック（各1〜5）</h3>
           <div id="mindQuestions"></div>
@@ -2071,12 +2060,6 @@ function selectMindAnswer(key,idx,val,el){
   document.querySelectorAll(`#mindQ_${key}_${idx} .personality-card`).forEach(e=>e.classList.remove('selected'));
   el.classList.add('selected');
 }
-let selectedMood = 3;
-function selectMood(n,el){
-  selectedMood = n;
-  document.querySelectorAll('[id^=mood]').forEach(e=>e.classList.remove('selected'));
-  el.classList.add('selected');
-}
 
 async function saveMindJournal(){
   const note = document.getElementById('mindNote').value;
@@ -2086,8 +2069,9 @@ async function saveMindJournal(){
     const arr = mindAnswers[k];
     avgAnswers[k] = Math.round(arr.reduce((a,b)=>a+b,0)/arr.length);
   });
+  const overallMood = Math.round(Object.values(avgAnswers).reduce((a,b)=>a+b,0)/Object.values(avgAnswers).length);
   if(state.userId){
-    const {error} = await sb.from('mind_journals').insert({user_id:state.userId, date, mood:selectedMood, note, ...avgAnswers});
+    const {error} = await sb.from('mind_journals').insert({user_id:state.userId, date, mood:overallMood, note, ...avgAnswers});
     if(error){console.error('mind journal save error:',error);showNotif('⚠️ 保存失敗: '+error.message);return;}
   }
   showNotif('ジャーナルを保存しました');
@@ -2114,10 +2098,7 @@ function renderMindHistory(){
     ? '<p class="text-muted text-sm">まだジャーナルがありません</p>'
     : recent.map(j=>`
       <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-        <div class="flex-between mb-4">
-          <span class="text-xs text-muted">${j.date}</span>
-          <span style="font-size:18px">${['😞','😕','😐','😊','😄'][j.mood-1]}</span>
-        </div>
+        <div class="text-xs text-muted mb-4">${j.date}</div>
         <p style="font-size:12px;color:var(--text)">${j.note||''}</p>
       </div>`).join('');
 }
