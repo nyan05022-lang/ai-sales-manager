@@ -309,7 +309,11 @@ tr:hover td{background:var(--bg3)}
       <div class="nav-section">設定・その他</div>
       <div class="nav-item" onclick="showPage('profile',this)"><span class="nav-icon-wrap"><i class="ti ti-user-circle" style="color:#8aafc8"></i></span><span>プロフィール</span></div>
       <div class="nav-section" id="navSectionAdmin" style="display:none">管理者</div>
-      <div class="nav-item" id="navAdmin" style="display:none" onclick="showPage('admin',this)"><span class="nav-icon-wrap"><i class="ti ti-shield-lock" style="color:#ef4444"></i></span><span>管理者画面</span></div>
+      <div class="nav-item" id="navAdmin" style="display:none" onclick="goToAdminTab('dashboard',this)"><span class="nav-icon-wrap"><i class="ti ti-shield-lock" style="color:#ef4444"></i></span><span>ダッシュボード</span></div>
+      <div class="nav-item" id="navAdminMembers" style="display:none" onclick="goToAdminTab('members',this)"><span class="nav-icon-wrap"><i class="ti ti-users" style="color:#4f8ef7"></i></span><span>メンバー管理</span></div>
+      <div class="nav-item" id="navAdminKpi" style="display:none" onclick="goToAdminTab('kpi',this)"><span class="nav-icon-wrap"><i class="ti ti-chart-line" style="color:#34d399"></i></span><span>KPI分析</span></div>
+      <div class="nav-item" id="navAdminReports" style="display:none" onclick="goToAdminTab('reports',this)"><span class="nav-icon-wrap"><i class="ti ti-file-text" style="color:#fbbf24"></i></span><span>日報管理</span></div>
+      <div class="nav-item" id="navAdminMind" style="display:none" onclick="goToAdminTab('mind',this)"><span class="nav-icon-wrap"><i class="ti ti-brain" style="color:#a78bfa"></i></span><span>マインド管理</span></div>
     </div>
     <div class="sidebar-user">
       <div class="flex-between">
@@ -762,14 +766,7 @@ tr:hover td{background:var(--bg3)}
           <div><h2><i class="ti ti-shield-lock"></i> 管理者画面</h2><p class="text-muted text-sm">組織全体のメンバー・KPI・日報を管理します</p></div>
           <span class="badge badge-red">管理者限定</span>
         </div>
-        <div class="tabs" id="adminTabs" style="flex-wrap:wrap">
-          <div class="tab active" onclick="switchAdminTab('dashboard',this)">ダッシュボード</div>
-          <div class="tab" onclick="switchAdminTab('members',this)">👥 メンバー管理</div>
-          <div class="tab" onclick="switchAdminTab('kpi',this)">📈 KPI分析</div>
-          <div class="tab" onclick="switchAdminTab('reports',this)">📝 日報管理</div>
-          <div class="tab" onclick="switchAdminTab('mind',this)">🧠 マインド管理</div>
-        </div>
-        <div id="adminContent" style="margin-top:16px"></div>
+        <div id="adminContent"></div>
       </div>
 
     </div>
@@ -913,7 +910,9 @@ async function doAdminLogin(){
   document.getElementById('app').style.display='flex';
   initApp();
   setAdminMode(true);
-  document.getElementById('navAdmin').style.display = 'flex';
+  ['navAdmin','navAdminMembers','navAdminKpi','navAdminReports','navAdminMind'].forEach(id=>{
+    document.getElementById(id).style.display = 'flex';
+  });
   document.getElementById('navSectionAdmin').style.display = 'block';
   showPage('admin', document.getElementById('navAdmin'));
 }
@@ -1150,7 +1149,9 @@ async function loadUserData(userId){
     state.personalityScores = profile.personality_scores||null;
     state.needsDiagnosis = !profile.personality_scores || Object.keys(profile.personality_scores).length===0;
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
-    document.getElementById('navAdmin').style.display = 'none';
+    ['navAdmin','navAdminMembers','navAdminKpi','navAdminReports','navAdminMind'].forEach(id=>{
+      document.getElementById(id).style.display = 'none';
+    });
     document.getElementById('navSectionAdmin').style.display = 'none';
     if(profile.team_id){
       const {data:teamData, error:teamErr} = await sb.from('teams').select('code,name').eq('id',profile.team_id).single();
@@ -2987,8 +2988,11 @@ async function initAdmin(){
 }
 function switchAdminTab(tab,el){
   adminTab = tab;
-  document.querySelectorAll('#adminTabs .tab').forEach(t=>t.classList.remove('active'));
-  if(el) el.classList.add('active');
+  renderAdminTab();
+}
+function goToAdminTab(tab, el){
+  adminTab = tab;
+  showPage('admin', el);
   renderAdminTab();
 }
 function adminMonthPrefix(){
