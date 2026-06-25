@@ -341,12 +341,13 @@ tr:hover td{background:var(--bg3)}
         <div class="card mb-16">
           <div class="flex-between mb-12">
             <div>
-              <h3>売上推移</h3>
+              <h3>売上・活動の推移</h3>
               <p class="text-muted text-xs mt-8" id="salesChartSub">今月の日別売上</p>
             </div>
             <div class="flex gap-8">
               <div class="tabs" style="margin-bottom:0">
-                <div class="tab active" id="tabDay" onclick="switchSalesTab('day',this)">日別</div>
+                <div class="tab" id="tabDay" onclick="switchSalesTab('day',this)">日別</div>
+                <div class="tab active" id="tabWeek" onclick="switchSalesTab('week',this)">週次</div>
                 <div class="tab" id="tabMonth" onclick="switchSalesTab('month',this)">月別</div>
               </div>
               <span class="badge badge-blue" id="salesBadge">今月</span>
@@ -1186,7 +1187,7 @@ function initApp(){
 
 // ===== DASHBOARD =====
 let chartSales;
-let salesTabMode = 'day';
+let salesTabMode = 'week';
 
 const SALES_DATA = {
   day: {
@@ -1251,7 +1252,7 @@ function initDashboard(){
     ? todayTaskList.slice(0,5).map(t=>'<div class="flex-between" style="padding:7px 0;border-bottom:1px solid var(--border)"><div class="flex gap-8" style="align-items:center"><input type="checkbox" onchange="dashToggleTask('+t.id+',this)" style="width:15px;height:15px;cursor:pointer"><span style="font-size:13px">'+t.name+'</span></div><span class="badge '+(t.priority==='高'?'badge-red':t.priority==='中'?'badge-amber':'badge-blue')+'">'+t.priority+'</span></div>').join('')
     : '<p class="text-muted text-sm">本日のタスクはありません</p>';
 
-  renderSalesChart('day');
+  renderSalesChart('week');
   renderDashRadar();
   renderDashPersonality();
   renderDashCoachAdvice(monthReports, goals);
@@ -1384,7 +1385,7 @@ async function renderDashRadar(){
 
 function switchSalesTab(mode, el){
   salesTabMode = mode;
-  document.querySelectorAll('#tabDay,#tabMonth').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#tabDay,#tabWeek,#tabMonth').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   renderSalesChart(mode);
 }
@@ -1395,42 +1396,50 @@ function buildRealSalesData(){
   const month = now.getMonth();
   const daysInMonth = new Date(year,month+1,0).getDate();
   const goals = state.user.goals||{sales:500,appo:30,meeting:15,contract:5};
-  const dayLabels=[],dayData=[],dayTarget=[],dayAppoPct=[],dayMeetingPct=[],dayContractPct=[];
   const dailyGoal = Math.round((goals.sales||500)/daysInMonth);
-  let cumAppo=0, cumMeeting=0, cumContract=0;
+
+  const dayLabels=[],dayData=[],dayTarget=[],dayMeeting=[];
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     dayLabels.push(`${month+1}/${d}`);
     const rep=state.reports.find(r=>r.date===ds);
     dayData.push(rep?rep.sales:0);
     dayTarget.push(dailyGoal);
-    cumAppo += rep?(rep.appo||0):0;
-    cumMeeting += rep?(rep.meeting||0):0;
-    cumContract += rep?(rep.contract||0):0;
-    dayAppoPct.push(goals.appo>0?Math.round(cumAppo/goals.appo*100):0);
-    dayMeetingPct.push(goals.meeting>0?Math.round(cumMeeting/goals.meeting*100):0);
-    dayContractPct.push(goals.contract>0?Math.round(cumContract/goals.contract*100):0);
+    dayMeeting.push(rep?(rep.meeting||0):0);
   }
+
+  const weekLabels=[],weekData=[],weekTarget=[],weekMeeting=[];
+  for(let start=1; start<=daysInMonth; start+=7){
+    const end = Math.min(start+6, daysInMonth);
+    weekLabels.push(`${month+1}/${start}-${month+1}/${end}`);
+    let wSales=0, wMeeting=0;
+    for(let d=start; d<=end; d++){
+      const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const rep=state.reports.find(r=>r.date===ds);
+      if(rep){ wSales += rep.sales||0; wMeeting += rep.meeting||0; }
+    }
+    weekData.push(wSales);
+    weekTarget.push(Math.round(dailyGoal*(end-start+1)));
+    weekMeeting.push(wMeeting);
+  }
+
   const monthLabels=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'].slice(0,month+1);
-  const monthData=[], monthTarget=[], monthAppoPct=[], monthMeetingPct=[], monthContractPct=[];
+  const monthData=[], monthTarget=[], monthMeeting=[];
   for(let m=0;m<=month;m++){
     const prefix=`${year}-${String(m+1).padStart(2,'0')}`;
     const mReports = state.reports.filter(r=>r.date&&r.date.startsWith(prefix));
-    const total=mReports.reduce((s,r)=>s+(r.sales||0),0);
-    monthData.push(total);
+    monthData.push(mReports.reduce((s,r)=>s+(r.sales||0),0));
     monthTarget.push(goals.sales||500);
-    const mAppo=mReports.reduce((s,r)=>s+(r.appo||0),0);
-    const mMeeting=mReports.reduce((s,r)=>s+(r.meeting||0),0);
-    const mContract=mReports.reduce((s,r)=>s+(r.contract||0),0);
-    monthAppoPct.push(goals.appo>0?Math.round(mAppo/goals.appo*100):0);
-    monthMeetingPct.push(goals.meeting>0?Math.round(mMeeting/goals.meeting*100):0);
-    monthContractPct.push(goals.contract>0?Math.round(mContract/goals.contract*100):0);
+    monthMeeting.push(mReports.reduce((s,r)=>s+(r.meeting||0),0));
   }
+
   const totalDay=dayData.reduce((a,b)=>a+b,0);
+  const totalWeek=weekData.reduce((a,b)=>a+b,0);
   const totalMonth=monthData.reduce((a,b)=>a+b,0);
   return {
-    day:{labels:dayLabels,data:dayData,target:dayTarget,total:totalDay,prev:Math.round(totalDay*0.9)||1,appoPct:dayAppoPct,meetingPct:dayMeetingPct,contractPct:dayContractPct},
-    month:{labels:monthLabels,data:monthData,target:monthTarget,total:totalMonth,prev:Math.round(totalMonth*0.9)||1,appoPct:monthAppoPct,meetingPct:monthMeetingPct,contractPct:monthContractPct}
+    day:{labels:dayLabels,data:dayData,target:dayTarget,meeting:dayMeeting,total:totalDay,prev:Math.round(totalDay*0.9)||1},
+    week:{labels:weekLabels,data:weekData,target:weekTarget,meeting:weekMeeting,total:totalWeek,prev:Math.round(totalWeek*0.9)||1},
+    month:{labels:monthLabels,data:monthData,target:monthTarget,meeting:monthMeeting,total:totalMonth,prev:Math.round(totalMonth*0.9)||1}
   };
 }
 
@@ -1438,12 +1447,13 @@ function renderSalesChart(mode){
   const REAL = buildRealSalesData();
   const d = REAL[mode];
   const isDay = mode==='day';
+  const periodLabel = mode==='day'?'今月の日別':mode==='week'?'今月の週次':'今年の月別';
   const diff = d.total - d.prev;
   const diffPct = Math.round(diff/d.prev*100);
   const targetTotal = d.target.reduce((a,b)=>a+b,0);
 
-  document.getElementById('salesChartSub').textContent = isDay ? '今月の日別売上（万円）' : '今年の月別売上（万円）';
-  document.getElementById('salesBadge').textContent = isDay ? '今月' : '今年';
+  document.getElementById('salesChartSub').textContent = `${periodLabel}売上・活動`;
+  document.getElementById('salesBadge').textContent = mode==='month' ? '今年' : '今月';
 
   document.getElementById('salesSummary').innerHTML = `
     <div style="background:var(--bg3);border-radius:var(--radius);padding:10px 16px;min-width:130px">
@@ -1452,7 +1462,7 @@ function renderSalesChart(mode){
       <div style="font-size:11px;color:${diff>=0?'var(--green)':'var(--red)'};margin-top:2px">${diff>=0?'▲':'▼'} ${Math.abs(diff)}万（${diff>=0?'+':''}${diffPct}%）前期比</div>
     </div>
     <div style="background:var(--bg3);border-radius:var(--radius);padding:10px 16px;min-width:130px">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:2px">${isDay?'最高日':'最高月'}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:2px">${isDay?'最高日':mode==='week'?'最高週':'最高月'}</div>
       <div style="font-size:20px;font-weight:700;color:var(--blue)">¥${Math.max(...d.data)}万</div>
       <div style="font-size:11px;color:var(--text2);margin-top:2px">${d.labels[d.data.indexOf(Math.max(...d.data))]}</div>
     </div>
@@ -1460,71 +1470,47 @@ function renderSalesChart(mode){
       <div style="font-size:11px;color:var(--text2);margin-bottom:2px">目標達成率</div>
       <div style="font-size:20px;font-weight:700;color:var(--amber)">${Math.round(d.total/targetTotal*100)}%</div>
       <div style="font-size:11px;color:var(--text2);margin-top:2px">目標 ¥${targetTotal}万</div>
-    </div>
-    <div style="flex:1;display:flex;align-items:center;gap:16px;font-size:12px;color:var(--text2)">
-      <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:24px;height:2.5px;background:#1a7fd4;border-radius:2px"></span>売上実績</span>
-      <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:24px;height:2px;background:#e08a00;border-radius:2px;border-top:2px dashed #e08a00"></span>目標</span>
     </div>`;
 
   if(chartSales){ chartSales.destroy(); }
   chartSales = new Chart(document.getElementById('chartSales').getContext('2d'), {
-    type: 'line',
     data: {
       labels: d.labels,
       datasets: [
         {
-          label: '売上実績（万円）',
+          type: 'bar',
+          label: '売上（実績）',
           data: d.data,
-          borderColor: '#1a7fd4',
-          backgroundColor: 'rgba(26,127,212,.08)',
-          tension: .4, fill: true,
-          pointRadius: isDay ? 3 : 5,
-          pointBackgroundColor: '#1a7fd4',
-          pointHoverRadius: 7,
-          borderWidth: 2.5
+          backgroundColor: 'rgba(79,142,247,.75)',
+          borderRadius: 4,
+          yAxisID: 'y',
+          order: 2
         },
         {
-          label: '目標（万円）',
+          type: 'line',
+          label: '売上（目標）',
           data: d.target,
-          borderColor: '#e08a00',
+          borderColor: '#9aa5b1',
           backgroundColor: 'transparent',
           tension: 0, fill: false,
           pointRadius: 0,
           borderWidth: 2,
-          borderDash: [6, 4]
+          borderDash: [6, 4],
+          yAxisID: 'y',
+          order: 1
         },
         {
-          label: 'アポ達成率（%）',
-          data: d.appoPct,
-          borderColor: '#4f8ef7',
+          type: 'line',
+          label: '商談件数',
+          data: d.meeting,
+          borderColor: '#34d399',
           backgroundColor: 'transparent',
           tension: .4, fill: false,
-          pointRadius: 0,
-          borderWidth: 1.5,
-          borderDash: [2,2],
-          yAxisID: 'y1'
-        },
-        {
-          label: '商談達成率（%）',
-          data: d.meetingPct,
-          borderColor: '#a78bfa',
-          backgroundColor: 'transparent',
-          tension: .4, fill: false,
-          pointRadius: 0,
-          borderWidth: 1.5,
-          borderDash: [2,2],
-          yAxisID: 'y1'
-        },
-        {
-          label: '成約達成率（%）',
-          data: d.contractPct,
-          borderColor: '#fbbf24',
-          backgroundColor: 'transparent',
-          tension: .4, fill: false,
-          pointRadius: 0,
-          borderWidth: 1.5,
-          borderDash: [2,2],
-          yAxisID: 'y1'
+          pointRadius: 4,
+          pointBackgroundColor: '#34d399',
+          borderWidth: 2,
+          yAxisID: 'y1',
+          order: 0
         }
       ]
     },
@@ -1532,7 +1518,7 @@ function renderSalesChart(mode){
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 10 }, color: '#4a6f8a' } },
+        legend: { display: true, position: 'top', align: 'start', labels: { boxWidth: 12, font: { size: 11 }, color: '#4a6f8a' } },
         tooltip: {
           backgroundColor: '#fff',
           titleColor: '#1a2e3d',
@@ -1540,26 +1526,29 @@ function renderSalesChart(mode){
           borderColor: '#b8d8ee',
           borderWidth: 1,
           padding: 10,
-          callbacks: { label: ctx => ctx.dataset.yAxisID==='y1' ? ` ${ctx.dataset.label}：${ctx.parsed.y}%` : ` ${ctx.dataset.label}：¥${ctx.parsed.y}万` }
+          callbacks: { label: ctx => ctx.dataset.yAxisID==='y1' ? ` ${ctx.dataset.label}：${ctx.parsed.y}件` : ` ${ctx.dataset.label}：¥${ctx.parsed.y}万` }
         }
       },
       scales: {
         x: {
-          grid: { color: 'rgba(26,100,180,.07)' },
-          ticks: { color: '#4a6f8a', font: { size: 11 }, maxRotation: isDay ? 45 : 0, autoSkip: true, maxTicksLimit: isDay ? 12 : 12 }
+          grid: { display: false },
+          ticks: { color: '#4a6f8a', font: { size: 11 }, maxRotation: isDay ? 45 : 0, autoSkip: true, maxTicksLimit: 12 }
         },
         y: {
+          position: 'left',
           min: 0,
           suggestedMax: Math.ceil(Math.max(...d.data, ...d.target) * 1.2 / 50) * 50,
           grid: { color: 'rgba(26,100,180,.07)' },
-          ticks: { color: '#4a6f8a', font: { size: 11 }, callback: v => '¥' + v + '万' }
+          ticks: { color: '#4a6f8a', font: { size: 11 }, callback: v => '¥' + v + '万' },
+          title: { display: true, text: '(万円)', color: '#9aa5b1', font: { size: 10 } }
         },
         y1: {
           position: 'right',
           min: 0,
-          suggestedMax: 100,
+          suggestedMax: Math.max(5, Math.ceil(Math.max(...d.meeting) * 1.4)),
           grid: { drawOnChartArea: false },
-          ticks: { color: '#4a6f8a', font: { size: 11 }, callback: v => v + '%' }
+          ticks: { color: '#4a6f8a', font: { size: 11 }, stepSize: 5 },
+          title: { display: true, text: '(件)', color: '#9aa5b1', font: { size: 10 } }
         }
       }
     }
