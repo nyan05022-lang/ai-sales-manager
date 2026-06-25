@@ -362,14 +362,24 @@ tr:hover td{background:var(--bg3)}
             <div id="kpiProgress"></div>
           </div>
         </div>
-        <div class="grid-2" style="gap:16px">
+        <div class="grid-2" style="gap:16px;margin-bottom:16px">
           <div class="card">
             <div class="flex-between mb-12"><h3>自分のスキルバランス</h3><button class="btn-ghost btn-sm" onclick="showPage('kpi',document.querySelector('[onclick*=kpi]'))">詳細 →</button></div>
             <div class="chart-wrap" style="height:220px"><canvas id="chartRadarDash" role="img" aria-label="営業スキルレーダーチャート">スキル評価グラフ</canvas></div>
           </div>
           <div class="card">
+            <div class="flex-between mb-12"><h3>最新の診断結果</h3><button class="btn-ghost btn-sm" onclick="showPage('profile',document.querySelector('[onclick*=profile]'))">詳細 →</button></div>
+            <div id="dashPersonality"></div>
+          </div>
+        </div>
+        <div class="grid-2" style="gap:16px">
+          <div class="card">
             <div class="flex-between mb-12"><h3>今日のタスク</h3><span class="badge badge-red">3件未了</span></div>
             <div id="todayTasks"></div>
+          </div>
+          <div class="card">
+            <div class="flex-between mb-12"><h3>AIコーチからのアドバイス</h3><button class="btn-ghost btn-sm" onclick="showPage('coach',document.querySelector('[onclick*=coach]'))">詳細 →</button></div>
+            <div id="dashCoachAdvice" class="ai-box"><p style="font-size:13px;line-height:1.7">日報を入力するとAIアドバイスが表示されます</p></div>
           </div>
         </div>
       </div>
@@ -1206,10 +1216,10 @@ function initDashboard(){
   const goals = state.user.goals||{sales:500,appo:30,meeting:15,contract:5};
 
   const kpiDefs = [
-    {label:'今月売上',val:totalSales,goal:goals.sales,unit:'万',color:'var(--green)',valClass:'text-green'},
-    {label:'アポ数',val:totalAppo,goal:goals.appo,unit:'件',color:'var(--blue)',valClass:'text-blue'},
-    {label:'商談数',val:totalMeeting,goal:goals.meeting,unit:'件',color:'var(--purple)',valClass:'text-purple'},
-    {label:'成約数',val:totalContract,goal:goals.contract,unit:'件',color:'var(--amber)',valClass:'text-amber'},
+    {label:'今月売上',val:totalSales,goal:goals.sales,unit:'万',color:'#34d399',bg:'#e8fbf3',icon:'ti-currency-yen',valClass:'text-green'},
+    {label:'アポ数',val:totalAppo,goal:goals.appo,unit:'件',color:'#4f8ef7',bg:'#eaf2fe',icon:'ti-calendar-event',valClass:'text-blue'},
+    {label:'商談数',val:totalMeeting,goal:goals.meeting,unit:'件',color:'#a78bfa',bg:'#f2eefd',icon:'ti-users',valClass:'text-purple'},
+    {label:'成約数',val:totalContract,goal:goals.contract,unit:'件',color:'#fbbf24',bg:'#fef8e8',icon:'ti-trophy',valClass:'text-amber'},
   ];
   const avgAchieve = Math.round(kpiDefs.reduce((s,k)=>s+(k.goal>0?k.val/k.goal:0),0)/kpiDefs.length*100);
   document.getElementById('topAchieveBadge').innerHTML = `<i class="ti ti-trending-up"></i> 目標達成率 ${avgAchieve}%`;
@@ -1217,11 +1227,13 @@ function initDashboard(){
     const pct = k.goal>0?Math.min(Math.round(k.val/k.goal*100),100):0;
     const isUp = k.val>=k.goal;
     return `<div class="kpi-card">
-      <div class="kpi-label">${k.label}</div>
+      <div class="flex-between mb-8">
+        <div class="kpi-label" style="margin-bottom:0">${k.label}</div>
+        <div style="width:32px;height:32px;border-radius:9px;background:${k.bg};display:flex;align-items:center;justify-content:center"><i class="ti ${k.icon}" style="color:${k.color};font-size:17px"></i></div>
+      </div>
       <div class="kpi-val ${k.valClass}">${k.label==='今月売上'?'¥':''}${k.val}<span style="font-size:14px">${k.unit}</span></div>
       <div class="kpi-change ${isUp?'kpi-up':'kpi-down'}"><i class="ti ti-trending-${isUp?'up':'down'}"></i> 達成率 ${pct}%</div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${k.color}"></div></div>
-      <div class="text-xs text-muted mt-8">目標 ${k.goal}${k.unit} / 達成率 ${pct}%</div>
+      <div class="progress-bar mt-8"><div class="progress-fill" style="width:${pct}%;background:${k.color}"></div></div>
     </div>`;
   }).join('');
 
@@ -1252,6 +1264,44 @@ function initDashboard(){
 
   renderSalesChart('day');
   renderDashRadar();
+  renderDashPersonality();
+  renderDashCoachAdvice(monthReports, goals);
+}
+function renderDashPersonality(){
+  const el = document.getElementById('dashPersonality');
+  if(!el) return;
+  const p = PERSONALITY[state.user.type];
+  if(!p){ el.innerHTML='<p class="text-muted text-sm">診断を完了すると表示されます</p>'; return; }
+  el.innerHTML = `
+    <div class="flex gap-12 mb-12" style="align-items:center">
+      <div style="font-size:32px">${p.icon}</div>
+      <div>
+        <div style="font-size:16px;font-weight:700;color:${p.color}">${p.label}</div>
+        <p class="text-xs text-muted" style="margin-top:2px;line-height:1.5">${p.desc.slice(0,40)}...</p>
+      </div>
+    </div>
+    <div class="flex gap-6" style="flex-wrap:wrap">
+      ${p.strength.split('・').map(s=>`<span class="badge badge-green">${s}</span>`).join('')}
+    </div>
+    <div class="flex gap-6 mt-8" style="flex-wrap:wrap">
+      ${p.weakness.split('・').map(s=>`<span class="badge badge-amber">${s}</span>`).join('')}
+    </div>`;
+}
+function renderDashCoachAdvice(monthReports, goals){
+  const el = document.getElementById('dashCoachAdvice');
+  if(!el) return;
+  if(!monthReports || monthReports.length===0) return;
+  const totalSales = monthReports.reduce((s,r)=>s+(r.sales||0),0);
+  const totalAppo = monthReports.reduce((s,r)=>s+(r.appo||0),0);
+  const totalCall = monthReports.reduce((s,r)=>s+(r.calls||0),0);
+  const appoRate = totalCall>0?Math.round(totalAppo/totalCall*100):0;
+  const salesAchieve = goals.sales>0?Math.round(totalSales/goals.sales*100):0;
+  const p = PERSONALITY[state.user.type]||PERSONALITY.driver;
+  el.innerHTML = `<p style="font-size:13px;line-height:1.8">
+    今月の売上目標達成率は<strong>${salesAchieve}%</strong>、アポ率は<strong>${appoRate}%</strong>です。
+    ${salesAchieve>=100?'目標を達成しています。この調子を維持しましょう。':'目標達成にはもう一段の行動量・質の向上が必要です。'}<br>
+    あなたの強みである「${p.strength.split('・')[0]}」を活かしつつ、${p.weakness.split('・')[0]}を意識すると更に成果が伸びます。
+  </p>`;
 }
 
 let chartRadarDash;
