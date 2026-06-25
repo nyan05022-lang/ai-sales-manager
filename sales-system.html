@@ -262,6 +262,18 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<!-- RE-DIAGNOSIS (existing users without diagnosis data) -->
+<div id="rediagPage" style="display:none;min-height:100vh;padding:40px 20px">
+  <div style="max-width:680px;margin:0 auto">
+    <div class="card">
+      <h2 style="margin-bottom:6px">営業行動特性診断</h2>
+      <p class="text-muted text-sm" style="margin-bottom:20px">アプリの機能向上のため、診断を受けていただきます。全7問。最も近いものを選んでください</p>
+      <div id="rediagQuestions"></div>
+      <button class="btn-primary" style="margin-top:20px" onclick="completeRediag()">診断を完了する</button>
+    </div>
+  </div>
+</div>
+
 <!-- APP -->
 <div id="app" style="display:none">
   <nav class="sidebar">
@@ -873,6 +885,33 @@ async function doAdminLogin(){
 function setAdminMode(on){
   document.querySelectorAll('.staff-nav').forEach(e=>e.style.display = on?'none':'');
 }
+function enterAppOrRediag(){
+  document.getElementById('loginPage').style.display='none';
+  if(state.needsDiagnosis){
+    diagAnswers = {};
+    renderDiagQuestions('rediagQuestions');
+    document.getElementById('rediagPage').style.display='block';
+  } else {
+    document.getElementById('app').style.display='flex';
+    initApp();
+  }
+}
+async function completeRediag(){
+  if(Object.keys(diagAnswers).length < DIAG_QUESTIONS.length){
+    showNotif('全ての質問に回答してください');
+    return;
+  }
+  const result = computeDiagType();
+  state.user.type = result.type;
+  state.user.typeLabel = PERSONALITY[result.type].label;
+  state.personalityScores = result.scores;
+  state.needsDiagnosis = false;
+  await sb.from('profiles').upsert({id:state.userId, type:state.user.type, type_label:state.user.typeLabel, personality_scores:state.personalityScores});
+  document.getElementById('rediagPage').style.display='none';
+  document.getElementById('app').style.display='flex';
+  initApp();
+  showNotif('診断結果を反映しました');
+}
 async function doLogin(){
   const email = document.getElementById('loginEmail').value;
   const pass = document.getElementById('loginPass').value;
@@ -882,9 +921,7 @@ async function doLogin(){
   btn.textContent='ログイン'; btn.disabled=false;
   if(error){showNotif('ログイン失敗: '+error.message);return;}
   await loadUserData(data.user.id);
-  document.getElementById('loginPage').style.display='none';
-  document.getElementById('app').style.display='flex';
-  initApp();
+  enterAppOrRediag();
 }
 let regData = {};
 let regMode = 'join';
@@ -967,8 +1004,8 @@ const DIAG_QUESTIONS = [
     ]},
 ];
 let diagAnswers = {};
-function renderDiagQuestions(){
-  const el = document.getElementById('diagQuestions');
+function renderDiagQuestions(containerId){
+  const el = document.getElementById(containerId||'diagQuestions');
   if(!el) return;
   el.innerHTML = DIAG_QUESTIONS.map((q,qi)=>`
     <div class="mb-16" style="padding-bottom:14px;border-bottom:1px solid var(--border)">
@@ -1076,6 +1113,7 @@ async function loadUserData(userId){
     state.user.isAdmin = profile.is_admin||false;
     state.user.teamId = profile.team_id||null;
     state.personalityScores = profile.personality_scores||null;
+    state.needsDiagnosis = !profile.personality_scores || Object.keys(profile.personality_scores).length===0;
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
     document.getElementById('navAdmin').style.display = 'none';
     document.getElementById('navSectionAdmin').style.display = 'none';
@@ -3128,9 +3166,7 @@ window.onload=async()=>{
   const {data:{session}} = await sb.auth.getSession();
   if(session){
     await loadUserData(session.user.id);
-    document.getElementById('loginPage').style.display='none';
-    document.getElementById('app').style.display='flex';
-    initApp();
+    enterAppOrRediag();
   }
 };
 </script>
