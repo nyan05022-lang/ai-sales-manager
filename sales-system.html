@@ -685,7 +685,8 @@ tr:hover td{background:var(--bg3)}
           </div>
           <div class="card">
             <h3 class="mb-12">マインド分析</h3>
-            <div id="mindAnalysis"></div>
+            <div class="chart-wrap" style="height:200px"><canvas id="chartMindAnalysis"></canvas></div>
+            <div id="mindAnalysis" class="mt-12"></div>
           </div>
         </div>
         <div class="card mt-16">
@@ -2677,19 +2678,35 @@ function renderMindTrendChart(){
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aabe',font:{size:11}}}},scales:{x:{ticks:{color:'#a0aabe',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},y:{min:0,max:100,ticks:{color:'#a0aabe',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}}}}});
 }
 
+let chartMindAnalysis;
 function renderMindAnalysis(){
   const el = document.getElementById('mindAnalysis');
+  const canvas = document.getElementById('chartMindAnalysis');
   if(!el) return;
-  if(mindJournals.length===0){ el.innerHTML='<p class="text-muted text-sm">ジャーナルを記録すると分析が表示されます</p>'; return; }
+  if(mindJournals.length===0){
+    el.innerHTML='<p class="text-muted text-sm">ジャーナルを記録すると分析が表示されます</p>';
+    if(chartMindAnalysis){chartMindAnalysis.destroy();chartMindAnalysis=null;}
+    return;
+  }
   const avgOf = key => {
     const vals = mindJournals.map(j=>j[key]).filter(v=>v!=null);
     return vals.length>0 ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20) : 0;
   };
-  el.innerHTML = MIND_QUESTIONS.map(q=>{
-    const val = avgOf(q.key);
+  const values = MIND_QUESTIONS.map(q=>avgOf(q.key));
+  el.innerHTML = MIND_QUESTIONS.map((q,i)=>{
+    const val = values[i];
     const color = val>=80?'var(--green)':val>=60?'var(--blue)':val>=40?'var(--amber)':'var(--red)';
     return `<div style="margin-bottom:12px"><div class="flex-between text-sm mb-6"><span>${q.label}</span><span style="font-weight:600;color:${color}">${val}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${val}%;background:${color}"></div></div></div>`;
   }).join('');
+
+  if(canvas){
+    if(chartMindAnalysis){chartMindAnalysis.destroy();}
+    chartMindAnalysis = new Chart(canvas.getContext('2d'), {
+      type:'radar',
+      data:{labels:MIND_QUESTIONS.map(q=>q.label), datasets:[{label:'マインド分析',data:values,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.15)',pointRadius:3,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{display:false},pointLabels:{font:{size:11}}}}}
+    });
+  }
 }
 
 // ===== PROFILE =====
