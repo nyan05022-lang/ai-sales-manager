@@ -1027,7 +1027,8 @@ async function completeRegister(){
   let teamId, teamName;
   if(regData.mode==='join'){
     const {data:team, error:teamErr} = await sb.from('teams').select('*').eq('code',regData.teamCode).single();
-    if(teamErr || !team){showNotif('⚠️ チームコードが見つかりません。確認して再度お試しください。');return;}
+    console.log('team join lookup:', regData.teamCode, team, teamErr);
+    if(teamErr || !team){showNotif('⚠️ チームコードが見つかりません: '+(teamErr?teamErr.message:'該当チームなし'));return;}
     teamId = team.id;
     teamName = team.name;
   } else {
