@@ -2818,8 +2818,32 @@ function renderPersonalityBreakdown(){
     ${blendNote}`;
 }
 function copyTeamCode(){
-  navigator.clipboard.writeText(state.user.teamCode||'');
-  showNotif('チームコードをコピーしました');
+  const code = state.user.teamCode||'';
+  if(!code){showNotif('チームコードが見つかりません');return;}
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(code).then(()=>{
+      showNotif('チームコードをコピーしました');
+    }).catch(()=>{
+      fallbackCopyText(code);
+    });
+  } else {
+    fallbackCopyText(code);
+  }
+}
+function fallbackCopyText(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position='fixed';
+  ta.style.opacity='0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{
+    document.execCommand('copy');
+    showNotif('チームコードをコピーしました');
+  }catch(e){
+    showNotif('コピー失敗。コード: '+text);
+  }
+  document.body.removeChild(ta);
 }
 let chartGrowth;
 function initProfile(){
