@@ -660,7 +660,7 @@ tr:hover td{background:var(--bg3)}
         </div>
         <div class="grid-2" style="gap:16px">
           <div class="card">
-            <div class="flex-between mb-12"><h3>マインド推移</h3><span class="text-xs text-muted">過去3ヶ月</span></div>
+            <div class="flex-between mb-12"><h3>マインド推移・成長率</h3><span class="text-xs text-muted" id="mindGrowthBadge">過去3ヶ月</span></div>
             <div class="chart-wrap" style="height:200px"><canvas id="chartMind" role="img" aria-label="マインドスコア推移">マインド推移グラフ</canvas></div>
           </div>
           <div class="card">
@@ -669,12 +669,16 @@ tr:hover td{background:var(--bg3)}
           </div>
         </div>
         <div class="card mt-16">
-          <div class="flex-between mb-12"><h3>振り返りジャーナル</h3><span class="badge badge-blue">今日のエントリー</span></div>
-          <div class="form-group"><label>今日の一言</label><textarea id="mindNote" rows="3" placeholder="今日感じたこと、気づきなど..."></textarea></div>
-          <hr class="separator">
-          <h3 style="font-size:14px;margin-bottom:10px">マインド質問チェック（各1〜5）</h3>
-          <div id="mindQuestions"></div>
-          <button class="btn-primary mt-16" onclick="saveMindJournal()">保存</button>
+          <div class="flex-between mb-12"><h3>週次マインドチェック</h3><span class="badge badge-blue">週1回</span></div>
+          <div id="mindCheckGate"></div>
+          <div id="mindCheckForm" style="display:none">
+            <div class="form-group"><label>今週の一言</label><textarea id="mindNote" rows="3" placeholder="今週感じたこと、気づきなど..."></textarea></div>
+            <hr class="separator">
+            <h3 style="font-size:14px;margin-bottom:6px">マインド質問チェック（各1〜5）</h3>
+            <p class="text-xs text-muted mb-12">70%は毎回共通の質問、30%はAIがその時々に応じて選ぶ質問です</p>
+            <div id="mindQuestions"></div>
+            <button class="btn-primary mt-16" onclick="saveMindJournal()">今週分を保存</button>
+          </div>
           <div class="mt-16"><h3 style="font-size:14px;margin-bottom:10px">過去の記録</h3><div id="mindHistory"><p class="text-muted text-sm">まだジャーナルがありません</p></div></div>
         </div>
       </div>
@@ -2272,6 +2276,12 @@ const MIND_QUESTIONS = [
     'ネガティブな出来事を引きずらなかった',
     '困難な状況でも冷静さを保てた',
     '一度の失敗で諦めずに次の行動に移れた',
+  ], altItems:[
+    '今週、想定外の出来事にどれくらい冷静に対応できましたか？',
+    '断られたり否定された後も、すぐに気持ちを切り替えられましたか？',
+    '今週のストレスを翌日まで持ち込まなかった度合いはどれくらいですか？',
+    'うまくいかない日があっても、自分を立て直せた実感はありますか？',
+    '逆境の中でも前向きな行動を選べた場面はありましたか？',
   ]},
   {key:'agency', label:'主体性', items:[
     '自分から考えて行動できた',
@@ -2279,6 +2289,12 @@ const MIND_QUESTIONS = [
     '課題を自分で見つけて対応した',
     '新しいことに自発的に挑戦した',
     '改善点を自分で考え実行した',
+  ], altItems:[
+    '今週、誰の指示もなく自分で動いた場面はどれくらいありましたか？',
+    '「これは自分がやるべきだ」と感じて行動したことはありましたか？',
+    '周りが気づかない課題に自分で気づいて対応できましたか？',
+    '今週、新しいやり方や挑戦を自分から取り入れましたか？',
+    '改善のアイデアを思いついたら、すぐ実行に移せましたか？',
   ]},
   {key:'efficacy', label:'自己効力感', items:[
     '目標を達成できる自信を持てた',
@@ -2286,6 +2302,12 @@ const MIND_QUESTIONS = [
     '難しい商談でも対応できると感じた',
     '過去の成功体験を活かせた',
     '今後の成長にポジティブな見通しを持てた',
+  ], altItems:[
+    '今週の自分の頑張りに対して、どれくらい自信を持てましたか？',
+    '難しい場面でも「自分なら対応できる」と思えましたか？',
+    '今週の成果は、自分の力で得られたと実感できましたか？',
+    '苦手だと感じていたことに、少しでも前進を感じましたか？',
+    '半年後の自分の成長について、明るい見通しを持てていますか？',
   ]},
   {key:'openness', label:'素直さ', items:[
     '人からの指摘を素直に受け止められた',
@@ -2293,6 +2315,12 @@ const MIND_QUESTIONS = [
     '自分の弱みを認められた',
     '他人の意見を否定せず聞けた',
     '学ぶ姿勢を持ち続けられた',
+  ], altItems:[
+    '今週、人からの指摘にどれくらい素直に向き合えましたか？',
+    'もらったアドバイスを実際の行動に変えられましたか？',
+    '自分の苦手な部分を、隠さず認められましたか？',
+    '自分と異なる意見も、まずは最後まで聞けましたか？',
+    '今週、新しく学んだことや気づきはありましたか？',
   ]},
   {key:'persistence', label:'継続力', items:[
     '最後までやり切ることができた',
@@ -2300,25 +2328,58 @@ const MIND_QUESTIONS = [
     'モチベーションが下がっても継続できた',
     '日々のルーティンを守れた',
     '長期目標を見失わなかった',
+  ], altItems:[
+    '今週、最後まで投げ出さずにやり切れたことはありましたか？',
+    'モチベーションが下がった日でも、手を止めずに続けられましたか？',
+    '決めたルーティンを今週どれくらい守れましたか？',
+    '長期的な目標を、今週も意識し続けられましたか？',
+    '地味な作業でも、コツコツ取り組めた実感はありますか？',
   ]},
 ];
 let mindAnswers = {};
+let currentMindQuestionSet = [];
 MIND_QUESTIONS.forEach(q=>{ mindAnswers[q.key] = q.items.map(()=>3); });
+function buildWeeklyQuestionSet(){
+  // 各カテゴリの5問のうち、約30%をAIが選ぶ別視点の質問に入れ替える
+  return MIND_QUESTIONS.map(q=>({
+    key:q.key, label:q.label,
+    items: q.items.map((item,i)=> Math.random()<0.3 ? {text:q.altItems[i], ai:true} : {text:item, ai:false})
+  }));
+}
 function initMind(){
   const el = document.getElementById('mindAnalysis');
   if(el) el.innerHTML = '<p class="text-muted text-sm">ジャーナルを記録すると分析が表示されます</p>';
   if(chartMind){chartMind.destroy(); chartMind=null;}
-  renderMindQuestions();
+}
+function renderMindCheckGate(){
+  const gate = document.getElementById('mindCheckGate');
+  const form = document.getElementById('mindCheckForm');
+  if(!gate || !form) return;
+  const lastDate = mindJournals.length>0 ? mindJournals[mindJournals.length-1].date : null;
+  const daysSince = lastDate ? Math.floor((new Date()-new Date(lastDate))/86400000) : 999;
+  if(lastDate && daysSince < 7){
+    const remain = 7 - daysSince;
+    gate.innerHTML = `<p class="text-muted text-sm">前回のチェックから${daysSince}日経過しています。次回の診断まであと<strong>${remain}日</strong>お待ちください。</p>`;
+    form.style.display='none';
+  } else {
+    gate.innerHTML = '';
+    form.style.display='block';
+    currentMindQuestionSet = buildWeeklyQuestionSet();
+    mindAnswers = {};
+    MIND_QUESTIONS.forEach(q=>{ mindAnswers[q.key] = q.items.map(()=>3); });
+    renderMindQuestions();
+  }
 }
 function renderMindQuestions(){
   const el = document.getElementById('mindQuestions');
   if(!el) return;
-  el.innerHTML = MIND_QUESTIONS.map(q=>`
+  if(currentMindQuestionSet.length===0) currentMindQuestionSet = buildWeeklyQuestionSet();
+  el.innerHTML = currentMindQuestionSet.map(q=>`
     <div style="margin-bottom:16px">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--blue)">${q.label}</div>
       ${q.items.map((item,i)=>`
         <div style="margin-bottom:8px">
-          <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${item}</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${item.text}${item.ai?' <span class="badge badge-purple" style="font-size:9px;padding:1px 5px">AI</span>':''}</div>
           <div class="flex gap-6" id="mindQ_${q.key}_${i}">
             ${[1,2,3,4,5].map(n=>`<span class="personality-card${n===3?' selected':''}" style="padding:5px 10px;flex:1;text-align:center;cursor:pointer;font-size:12px" onclick="selectMindAnswer('${q.key}',${i},${n},this)">${n}</span>`).join('')}
           </div>
@@ -2358,6 +2419,27 @@ async function loadMindJournals(){
   updateMindScore();
   renderMindTrendChart();
   renderMindAnalysis();
+  renderMindCheckGate();
+  renderMindGrowthRate();
+}
+function renderMindGrowthRate(){
+  const badge = document.getElementById('mindGrowthBadge');
+  if(!badge) return;
+  if(mindJournals.length < 2){ badge.textContent = '過去3ヶ月'; return; }
+  const overallOf = j => {
+    const vals=[j.resilience,j.agency,j.efficacy,j.openness,j.persistence,j.mood*1].filter(v=>v!=null);
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  };
+  const half = Math.ceil(mindJournals.length/2);
+  const firstHalf = mindJournals.slice(0,half);
+  const secondHalf = mindJournals.slice(half);
+  if(secondHalf.length===0){ badge.textContent = '過去3ヶ月'; return; }
+  const avg1 = firstHalf.reduce((s,j)=>s+overallOf(j),0)/firstHalf.length;
+  const avg2 = secondHalf.reduce((s,j)=>s+overallOf(j),0)/secondHalf.length;
+  const growthPct = avg1>0 ? Math.round((avg2-avg1)/avg1*100) : 0;
+  const sign = growthPct>0?'+':'';
+  const color = growthPct>0?'var(--green)':growthPct<0?'var(--red)':'var(--text2)';
+  badge.innerHTML = `成長率 <strong style="color:${color}">${sign}${growthPct}%</strong>（前半比）`;
 }
 
 function renderMindHistory(){
