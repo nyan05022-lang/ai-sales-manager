@@ -243,29 +243,8 @@ tr:hover td{background:var(--bg3)}
 
     <div id="diagStep" class="card">
       <h2 style="margin-bottom:6px">営業行動特性診断</h2>
-      <p class="text-muted text-sm" style="margin-bottom:20px">あなたに最も近いタイプを選んでください</p>
-      <div class="grid-2" style="gap:12px">
-        <div class="personality-card" onclick="selectType('driver',this)">
-          <div class="personality-icon">⚡</div>
-          <div style="font-weight:600;margin-bottom:4px">ドライバー型</div>
-          <div class="text-muted text-sm">行動力・結果重視。スピード感があり目標達成に全力</div>
-        </div>
-        <div class="personality-card" onclick="selectType('expressive',this)">
-          <div class="personality-icon">🌟</div>
-          <div style="font-weight:600;margin-bottom:4px">エクスプレッシブ型</div>
-          <div class="text-muted text-sm">人間関係重視。感情豊かで共感力が高い</div>
-        </div>
-        <div class="personality-card" onclick="selectType('analytical',this)">
-          <div class="personality-icon">🔍</div>
-          <div style="font-weight:600;margin-bottom:4px">アナリティカル型</div>
-          <div class="text-muted text-sm">データ重視・論理的。慎重に分析してから行動</div>
-        </div>
-        <div class="personality-card" onclick="selectType('amiable',this)">
-          <div class="personality-icon">🤝</div>
-          <div style="font-weight:600;margin-bottom:4px">エミアブル型</div>
-          <div class="text-muted text-sm">協調性重視。チームワークと信頼関係を大切にする</div>
-        </div>
-      </div>
+      <p class="text-muted text-sm" style="margin-bottom:20px">全7問。最も近いものを選んでください</p>
+      <div id="diagQuestions"></div>
       <button class="btn-primary" style="margin-top:20px" onclick="nextDiagStep()">次へ</button>
     </div>
 
@@ -933,13 +912,98 @@ function goToRegisterFlow(){
   }
   document.getElementById('loginPage').style.display='none';
   document.getElementById('registerPage').style.display='block';
+  diagAnswers = {};
+  renderDiagQuestions();
 }
-function selectType(t, el){
-  state.selectedType=t;
-  document.querySelectorAll('.personality-card').forEach(e=>e.classList.remove('selected'));
+const DIAG_QUESTIONS = [
+  { q:'あなたが最も「モチベーションが上がる」と感じる瞬間はどれですか？',
+    opts:[
+      {l:'A',t:'目標を達成したり、人より高い成果を出して評価されたとき（成果・競争軸）',type:'driver'},
+      {l:'B',t:'顧客やチームのメンバーから「ありがとう」と感謝されたとき（貢献・対人軸）',type:'amiable'},
+      {l:'C',t:'新しい知識やスキルを身に付け、自分の成長を実感できたとき（自己成長軸）',type:'analytical'},
+      {l:'D',t:'計画通りに物事を進め、ミスなくやり遂げたとき（プロセス・安定軸）',type:'analytical'},
+    ]},
+  { q:'高い目標に対して、思うように成果が出ないとき、最初に取る行動は？',
+    opts:[
+      {l:'A',t:'とにかく行動量（打席数）を増やして、確率論で突破しようとする（行動量型）',type:'driver'},
+      {l:'B',t:'なぜ成果が出ないのか、これまでのプロセスを分析して改善策を考える（思考・分析型）',type:'analytical'},
+      {l:'C',t:'成果が出ている先輩や上司にすぐに相談し、アドバイスを仰ぐ（素直さ・巻き込み型）',type:'amiable'},
+      {l:'D',t:'一度気持ちをリフレッシュさせ、モチベーションを立て直してから再開する（メンタルコントロール型）',type:'expressive'},
+    ]},
+  { q:'初対面の人と話すとき、あなたはどのような立ち回りをすることが多いですか？',
+    opts:[
+      {l:'A',t:'自分から積極的に話題を提供し、場の雰囲気を盛り上げる（開拓・リード型）',type:'driver'},
+      {l:'B',t:'相手の話をじっくり聞き、相手が話しやすい空気を作る（傾聴・ヒアリング型）',type:'amiable'},
+      {l:'C',t:'相手のプロフィールや共通点を事前にリサーチし、戦略的に話す（準備・ロジカル型）',type:'analytical'},
+      {l:'D',t:'相手のテンションや好みに自然と自分を合わせる（適応・調和型）',type:'expressive'},
+    ]},
+  { q:'自分で決めた目標（または与えられた目標）に対するあなたのスタンスは？',
+    opts:[
+      {l:'A',t:'何が何でも達成する。未達成で終わることは絶対に避けたい（執着度：高）',type:'driver'},
+      {l:'B',t:'高めの目標を設定し、たとえ未達成でもプロセスで得られるものがあれば良い（プロセス重視）',type:'analytical'},
+      {l:'C',t:'確実に達成できる現実的な目標を立て、着実にクリアしていきたい（堅実重視）',type:'amiable'},
+      {l:'D',t:'目標の数字よりも、自分が納得して楽しく取り組めるかを重視したい（納得感重視）',type:'expressive'},
+    ]},
+  { q:'ルールや環境が急に変更されたり、新しい挑戦を求められたとき、どう感じますか？',
+    opts:[
+      {l:'A',t:'チャンスだと捉え、ワクワクしてすぐに新しい環境に飛び込む（イノベーター型）',type:'driver'},
+      {l:'B',t:'変更の理由や背景を納得できれば、前向きに対応する（納得連動型）',type:'analytical'},
+      {l:'C',t:'少し不安や抵抗を感じるが、周囲の出方を見ながら徐々に適応する（慎重型）',type:'amiable'},
+      {l:'D',t:'これまでのやり方にこだわりがあり、変えることに対してストレスを感じやすい（保守型）',type:'amiable'},
+    ]},
+  { q:'周囲の友人から、あなたはどのような人だと言われることが多いですか？',
+    opts:[
+      {l:'A',t:'「行動力がある」「エネルギーに溢れている」「負けず嫌い」（突破力）',type:'driver'},
+      {l:'B',t:'「話しやすい」「相談に乗ってくれる」「気が利く」（共感力）',type:'expressive'},
+      {l:'C',t:'「頭が良い」「計画性がある」「落ち着いている」（論理力）',type:'analytical'},
+      {l:'D',t:'「真面目」「コツコツやり抜く」「信頼できる」（継続力）',type:'amiable'},
+    ]},
+  { q:'今回のインターンを通じて、あなたが「最も得たいもの」は何ですか？',
+    opts:[
+      {l:'A',t:'同世代に圧倒的な差をつける「ビジネス戦闘力（稼ぐ力・営業力）」',type:'driver'},
+      {l:'B',t:'将来起業したり、組織をマネジメントしたりするための「経営・リーダー視点」',type:'driver'},
+      {l:'C',t:'就活や将来のキャリアで自信を持って語れる「目に見える実績・データ」',type:'analytical'},
+      {l:'D',t:'尊敬できる仲間や、社会人の先輩との「質の高いネットワーク（人脈）」',type:'expressive'},
+    ]},
+];
+let diagAnswers = {};
+function renderDiagQuestions(){
+  const el = document.getElementById('diagQuestions');
+  if(!el) return;
+  el.innerHTML = DIAG_QUESTIONS.map((q,qi)=>`
+    <div class="mb-16" style="padding-bottom:14px;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;font-size:13px;margin-bottom:10px">Q${qi+1}. ${q.q}</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${q.opts.map(o=>`<div class="personality-card" style="text-align:left;padding:10px 12px" onclick="selectDiagAnswer(${qi},'${o.l}',this)" id="diagQ${qi}_${o.l}">
+          <span style="font-weight:700;color:var(--blue)">${o.l}.</span> <span style="font-size:12px">${o.t}</span>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function selectDiagAnswer(qIndex, letter, el){
+  diagAnswers[qIndex] = letter;
+  DIAG_QUESTIONS[qIndex].opts.forEach(o=>{
+    document.getElementById(`diagQ${qIndex}_${o.l}`).classList.remove('selected');
+  });
   el.classList.add('selected');
 }
+function computeDiagType(){
+  const scores = {driver:0, expressive:0, analytical:0, amiable:0};
+  DIAG_QUESTIONS.forEach((q,qi)=>{
+    const letter = diagAnswers[qi];
+    if(!letter) return;
+    const opt = q.opts.find(o=>o.l===letter);
+    if(opt) scores[opt.type]++;
+  });
+  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  return sorted[0][0];
+}
 function nextDiagStep(){
+  if(Object.keys(diagAnswers).length < DIAG_QUESTIONS.length){
+    showNotif('全ての質問に回答してください');
+    return;
+  }
+  state.selectedType = computeDiagType();
   document.getElementById('diagStep').style.display='none';
   document.getElementById('goalStep').style.display='block';
   document.getElementById('s2').classList.remove('active');document.getElementById('s2').classList.add('done');
