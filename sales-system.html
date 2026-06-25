@@ -73,7 +73,14 @@ h1{font-size:22px;font-weight:600}h2{font-size:18px;font-weight:600}h3{font-size
 .nav-item.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blue);border-radius:0 2px 2px 0}
 .nav-item i{font-size:17px;width:18px;text-align:center}
 .nav-icon-wrap{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:var(--bg3);flex-shrink:0}
-.mind-circle{width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
+#pg-dashboard .card{padding:14px 16px}
+#pg-dashboard h3{font-size:14px}
+#pg-dashboard .kpi-card{padding:12px 14px}
+#pg-dashboard .kpi-val{font-size:20px}
+#pg-dashboard .kpi-label{font-size:10px}
+#pg-dashboard .tabs{font-size:11px}
+#pg-dashboard .tab{padding:4px 10px;font-size:11px}
+.mind-circle{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
 .mind-circle::before{content:'';position:absolute;inset:6px;border-radius:50%;background:#fff}
 .mind-circle-val{position:relative;z-index:1;text-align:center}
 .nav-item.active .nav-icon-wrap{background:#fff}
@@ -353,42 +360,42 @@ tr:hover td{background:var(--bg3)}
               <span class="badge badge-blue" id="salesBadge">今月</span>
             </div>
           </div>
-          <div style="display:flex;gap:20px;margin-bottom:12px" id="salesSummary"></div>
-          <div class="chart-wrap" style="height:220px"><canvas id="chartSales" role="img" aria-label="売上推移グラフ">売上データ</canvas></div>
+          <div style="display:flex;gap:12px;margin-bottom:10px" id="salesSummary"></div>
+          <div class="chart-wrap" style="height:170px"><canvas id="chartSales" role="img" aria-label="売上推移グラフ">売上データ</canvas></div>
         </div>
-        <div class="card mb-16">
-          <h3 class="mb-12">チームメンバー ランキング</h3>
+        <div class="card mb-12">
+          <h3 class="mb-8">チームメンバー ランキング</h3>
           <div class="tabs" id="miniRankTabs">
             <div class="tab active" onclick="switchMiniRankTab('sales',this)">売上</div>
             <div class="tab" onclick="switchMiniRankTab('closeRate',this)">受注率</div>
             <div class="tab" onclick="switchMiniRankTab('meeting',this)">商談件数</div>
             <div class="tab" onclick="switchMiniRankTab('mind',this)">マインドスコア</div>
           </div>
-          <div id="miniRanking" class="mt-12"></div>
+          <div id="miniRanking" class="mt-8"></div>
         </div>
-        <div class="grid-2" style="gap:16px;margin-bottom:16px">
+        <div class="grid-2" style="gap:12px;margin-bottom:12px">
           <div class="card">
-            <div class="flex-between mb-12"><h3>自分のスキルバランス</h3><button class="btn-ghost btn-sm" onclick="showPage('kpi',document.querySelector('[onclick*=kpi]'))">詳細 →</button></div>
-            <div class="chart-wrap" style="height:220px"><canvas id="chartRadarDash" role="img" aria-label="営業スキルレーダーチャート">スキル評価グラフ</canvas></div>
+            <div class="flex-between mb-8"><h3>自分のスキルバランス</h3><button class="btn-ghost btn-sm" onclick="showPage('kpi',document.querySelector('[onclick*=kpi]'))">詳細 →</button></div>
+            <div class="chart-wrap" style="height:160px"><canvas id="chartRadarDash" role="img" aria-label="営業スキルレーダーチャート">スキル評価グラフ</canvas></div>
           </div>
           <div class="card">
-            <div class="flex-between mb-12"><h3>マインド・コンディション</h3><button class="btn-ghost btn-sm" onclick="showPage('mind',document.querySelector('[onclick*=mind]'))">詳細 →</button></div>
+            <div class="flex-between mb-8"><h3>マインド・コンディション</h3><button class="btn-ghost btn-sm" onclick="showPage('mind',document.querySelector('[onclick*=mind]'))">詳細 →</button></div>
             <div id="dashMindCondition"><p class="text-muted text-sm">読込中...</p></div>
           </div>
         </div>
-        <div class="grid-2" style="gap:16px;margin-bottom:16px">
+        <div class="grid-2" style="gap:12px;margin-bottom:12px">
           <div class="card">
-            <div class="flex-between mb-12"><h3>最新の診断結果</h3><button class="btn-ghost btn-sm" onclick="showPage('profile',document.querySelector('[onclick*=profile]'))">詳細 →</button></div>
+            <div class="flex-between mb-8"><h3>最新の診断結果</h3><button class="btn-ghost btn-sm" onclick="showPage('profile',document.querySelector('[onclick*=profile]'))">詳細 →</button></div>
             <div id="dashPersonality"></div>
           </div>
           <div class="card">
-            <div class="flex-between mb-12"><h3>今日のタスク</h3><span class="badge badge-red">3件未了</span></div>
+            <div class="flex-between mb-8"><h3>今日のタスク</h3><span class="badge badge-red">3件未了</span></div>
             <div id="todayTasks"></div>
           </div>
         </div>
         <div class="card">
-          <div class="flex-between mb-12"><h3>AIコーチからのアドバイス</h3><button class="btn-ghost btn-sm" onclick="showPage('coach',document.querySelector('[onclick*=coach]'))">詳細 →</button></div>
-          <div id="dashCoachAdvice" class="ai-box"><p style="font-size:13px;line-height:1.7">日報を入力するとAIアドバイスが表示されます</p></div>
+          <div class="flex-between mb-8"><h3>AIコーチからのアドバイス</h3><button class="btn-ghost btn-sm" onclick="showPage('coach',document.querySelector('[onclick*=coach]'))">詳細 →</button></div>
+          <div id="dashCoachAdvice" class="ai-box" style="padding:10px"><p style="font-size:12px;line-height:1.6">日報を入力するとAIアドバイスが表示されます</p></div>
         </div>
       </div>
 
@@ -1293,20 +1300,20 @@ async function renderDashMindCondition(){
   const gaugeColor = overall>=80?'#34d399':overall>=60?'#4f8ef7':overall>=40?'#fbbf24':'#f87171';
 
   el.innerHTML = `
-    <div class="flex gap-16 mb-16" style="align-items:center">
+    <div class="flex gap-10 mb-10" style="align-items:center">
       <div class="mind-circle" style="background:conic-gradient(${gaugeColor} ${overall*3.6}deg, var(--bg3) 0deg)">
-        <div class="mind-circle-val"><div style="font-size:20px;font-weight:700;color:${gaugeColor}">${overall}</div><div class="text-xs text-muted">/100</div></div>
+        <div class="mind-circle-val"><div style="font-size:15px;font-weight:700;color:${gaugeColor}">${overall}</div><div class="text-xs text-muted" style="font-size:9px">/100</div></div>
       </div>
       <div style="flex:1">
-        <div class="text-xs text-muted mb-4">総合スコア</div>
-        <div class="flex gap-8" style="align-items:center">
-          <span class="badge" style="background:${condColor}22;color:${condColor}">${condLabel}</span>
-          <span class="text-xs text-muted">コンディション（直近${recent.length}回）</span>
+        <div class="text-xs text-muted mb-2">総合スコア</div>
+        <div class="flex gap-6" style="align-items:center">
+          <span class="badge" style="background:${condColor}22;color:${condColor};font-size:10px">${condLabel}</span>
+          <span class="text-xs text-muted">直近${recent.length}回</span>
         </div>
-        <p class="text-xs" style="margin-top:6px;line-height:1.6;color:var(--text)">${condText}</p>
+        <p class="text-xs" style="margin-top:4px;line-height:1.4;color:var(--text)">${condText}</p>
       </div>
     </div>
-    <div class="chart-wrap" style="height:160px"><canvas id="chartDashMind"></canvas></div>`;
+    <div class="chart-wrap" style="height:110px"><canvas id="chartDashMind"></canvas></div>`;
 
   if(chartDashMind){chartDashMind.destroy();}
   const canvas = document.getElementById('chartDashMind');
@@ -1322,18 +1329,18 @@ function renderDashPersonality(){
   const p = PERSONALITY[state.user.type];
   if(!p){ el.innerHTML='<p class="text-muted text-sm">診断を完了すると表示されます</p>'; return; }
   el.innerHTML = `
-    <div class="flex gap-12 mb-12" style="align-items:center">
-      <div style="font-size:32px">${p.icon}</div>
+    <div class="flex gap-8 mb-8" style="align-items:center">
+      <div style="font-size:24px">${p.icon}</div>
       <div>
-        <div style="font-size:16px;font-weight:700;color:${p.color}">${p.label}</div>
-        <p class="text-xs text-muted" style="margin-top:2px;line-height:1.5">${p.desc.slice(0,40)}...</p>
+        <div style="font-size:13px;font-weight:700;color:${p.color}">${p.label}</div>
+        <p class="text-xs text-muted" style="margin-top:1px;line-height:1.4">${p.desc.slice(0,32)}...</p>
       </div>
     </div>
-    <div class="flex gap-6" style="flex-wrap:wrap">
-      ${p.strength.split('・').map(s=>`<span class="badge badge-green">${s}</span>`).join('')}
+    <div class="flex gap-4" style="flex-wrap:wrap">
+      ${p.strength.split('・').map(s=>`<span class="badge badge-green" style="font-size:10px">${s}</span>`).join('')}
     </div>
-    <div class="flex gap-6 mt-8" style="flex-wrap:wrap">
-      ${p.weakness.split('・').map(s=>`<span class="badge badge-amber">${s}</span>`).join('')}
+    <div class="flex gap-4 mt-6" style="flex-wrap:wrap">
+      ${p.weakness.split('・').map(s=>`<span class="badge badge-amber" style="font-size:10px">${s}</span>`).join('')}
     </div>`;
 }
 function renderDashCoachAdvice(monthReports, goals){
@@ -2031,12 +2038,12 @@ function renderMiniRanking(){
   const medalColor = ['#fbbf24','#cbd5e1','#fb923c'];
   el.innerHTML = sorted.map((p,i)=>{
     const pct = Math.min(100, Math.round(p[miniRankMetric]/max*100));
-    return `<div class="flex gap-12" style="padding:9px 0;border-bottom:1px solid var(--border);align-items:center">
-      <div style="width:22px;height:22px;border-radius:50%;background:${i<3?medalColor[i]:'var(--bg3)'};color:${i<3?'#fff':'var(--text2)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
-      <div style="width:28px;height:28px;border-radius:50%;background:var(--blue2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${(p.name||'?')[0]}</div>
-      <div style="flex-shrink:0;width:90px;font-size:13px;font-weight:500">${p.name||'(未設定)'}${p.isMe?' 👤':''}</div>
-      <div style="flex:1;background:var(--bg4);border-radius:4px;height:8px"><div style="width:${pct}%;background:var(--green);height:8px;border-radius:4px"></div></div>
-      <div style="width:50px;text-align:right;font-size:13px;font-weight:600">${p[miniRankMetric]}${def.label}</div>
+    return `<div class="flex gap-8" style="padding:6px 0;border-bottom:1px solid var(--border);align-items:center">
+      <div style="width:18px;height:18px;border-radius:50%;background:${i<3?medalColor[i]:'var(--bg3)'};color:${i<3?'#fff':'var(--text2)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${i+1}</div>
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--blue2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${(p.name||'?')[0]}</div>
+      <div style="flex-shrink:0;width:80px;font-size:12px;font-weight:500">${p.name||'(未設定)'}${p.isMe?' 👤':''}</div>
+      <div style="flex:1;background:var(--bg4);border-radius:4px;height:6px"><div style="width:${pct}%;background:var(--green);height:6px;border-radius:4px"></div></div>
+      <div style="width:46px;text-align:right;font-size:12px;font-weight:600">${p[miniRankMetric]}${def.label}</div>
     </div>`;
   }).join('');
 }
