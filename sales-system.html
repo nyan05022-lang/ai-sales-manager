@@ -345,33 +345,49 @@ tr:hover td{background:var(--bg3)}
           </div>
         </div>
         <div class="grid-4 mb-16" id="kpiCards"></div>
-        <div class="card mb-16">
-          <div class="flex-between mb-12">
-            <div>
-              <h3>売上・活動の推移</h3>
-              <p class="text-muted text-xs mt-8" id="salesChartSub">今月の日別売上</p>
-            </div>
-            <div class="flex gap-8">
-              <div class="tabs" style="margin-bottom:0">
-                <div class="tab" id="tabDay" onclick="switchSalesTab('day',this)">日別</div>
-                <div class="tab active" id="tabWeek" onclick="switchSalesTab('week',this)">週次</div>
-                <div class="tab" id="tabMonth" onclick="switchSalesTab('month',this)">月別</div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="card">
+            <div class="flex-between mb-12">
+              <div>
+                <h3>売上・活動の推移</h3>
+                <p class="text-muted text-xs mt-8" id="salesChartSub">今月の日別売上</p>
               </div>
-              <span class="badge badge-blue" id="salesBadge">今月</span>
+              <div class="flex gap-8">
+                <div class="tabs" style="margin-bottom:0">
+                  <div class="tab" id="tabDay" onclick="switchSalesTab('day',this)">日別</div>
+                  <div class="tab active" id="tabWeek" onclick="switchSalesTab('week',this)">週次</div>
+                  <div class="tab" id="tabMonth" onclick="switchSalesTab('month',this)">月別</div>
+                </div>
+                <span class="badge badge-blue" id="salesBadge">今月</span>
+              </div>
             </div>
+            <div style="display:flex;gap:12px;margin-bottom:10px" id="salesSummary"></div>
+            <div class="chart-wrap" style="height:170px"><canvas id="chartSales" role="img" aria-label="売上推移グラフ">売上データ</canvas></div>
           </div>
-          <div style="display:flex;gap:12px;margin-bottom:10px" id="salesSummary"></div>
-          <div class="chart-wrap" style="height:170px"><canvas id="chartSales" role="img" aria-label="売上推移グラフ">売上データ</canvas></div>
+          <div class="card">
+            <div class="flex-between mb-8"><h3>マインド・コンディション</h3><button class="btn-ghost btn-sm" onclick="showPage('mind',document.querySelector('[onclick*=mind]'))">詳細 →</button></div>
+            <div id="dashMindCondition"><p class="text-muted text-sm">読込中...</p></div>
+          </div>
         </div>
-        <div class="card mb-12">
-          <h3 class="mb-8">チームメンバー ランキング</h3>
-          <div class="tabs" id="miniRankTabs">
-            <div class="tab active" onclick="switchMiniRankTab('sales',this)">売上</div>
-            <div class="tab" onclick="switchMiniRankTab('closeRate',this)">受注率</div>
-            <div class="tab" onclick="switchMiniRankTab('meeting',this)">商談件数</div>
-            <div class="tab" onclick="switchMiniRankTab('mind',this)">マインドスコア</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="card">
+            <h3 class="mb-8">チームメンバー ランキング</h3>
+            <div class="tabs" id="miniRankTabs">
+              <div class="tab active" onclick="switchMiniRankTab('sales',this)">売上</div>
+              <div class="tab" onclick="switchMiniRankTab('closeRate',this)">受注率</div>
+              <div class="tab" onclick="switchMiniRankTab('meeting',this)">商談件数</div>
+              <div class="tab" onclick="switchMiniRankTab('mind',this)">マインド</div>
+            </div>
+            <div id="miniRanking" class="mt-8"></div>
           </div>
-          <div id="miniRanking" class="mt-8"></div>
+          <div class="card">
+            <div class="flex-between mb-8"><h3>最新の診断結果</h3><button class="btn-ghost btn-sm" onclick="showPage('profile',document.querySelector('[onclick*=profile]'))">詳細 →</button></div>
+            <div id="dashPersonality"></div>
+          </div>
+          <div class="card">
+            <div class="flex-between mb-8"><h3>AIコーチからのアドバイス</h3><button class="btn-ghost btn-sm" onclick="showPage('coach',document.querySelector('[onclick*=coach]'))">詳細 →</button></div>
+            <div id="dashCoachAdvice" class="ai-box" style="padding:10px"><p style="font-size:12px;line-height:1.6">日報を入力するとAIアドバイスが表示されます</p></div>
+          </div>
         </div>
         <div class="grid-2" style="gap:12px;margin-bottom:12px">
           <div class="card">
@@ -379,23 +395,9 @@ tr:hover td{background:var(--bg3)}
             <div class="chart-wrap" style="height:160px"><canvas id="chartRadarDash" role="img" aria-label="営業スキルレーダーチャート">スキル評価グラフ</canvas></div>
           </div>
           <div class="card">
-            <div class="flex-between mb-8"><h3>マインド・コンディション</h3><button class="btn-ghost btn-sm" onclick="showPage('mind',document.querySelector('[onclick*=mind]'))">詳細 →</button></div>
-            <div id="dashMindCondition"><p class="text-muted text-sm">読込中...</p></div>
-          </div>
-        </div>
-        <div class="grid-2" style="gap:12px;margin-bottom:12px">
-          <div class="card">
-            <div class="flex-between mb-8"><h3>最新の診断結果</h3><button class="btn-ghost btn-sm" onclick="showPage('profile',document.querySelector('[onclick*=profile]'))">詳細 →</button></div>
-            <div id="dashPersonality"></div>
-          </div>
-          <div class="card">
             <div class="flex-between mb-8"><h3>今日のタスク</h3><span class="badge badge-red">3件未了</span></div>
             <div id="todayTasks"></div>
           </div>
-        </div>
-        <div class="card">
-          <div class="flex-between mb-8"><h3>AIコーチからのアドバイス</h3><button class="btn-ghost btn-sm" onclick="showPage('coach',document.querySelector('[onclick*=coach]'))">詳細 →</button></div>
-          <div id="dashCoachAdvice" class="ai-box" style="padding:10px"><p style="font-size:12px;line-height:1.6">日報を入力するとAIアドバイスが表示されます</p></div>
         </div>
       </div>
 
