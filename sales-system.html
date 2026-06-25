@@ -392,7 +392,7 @@ tr:hover td{background:var(--bg3)}
         <div class="grid-2" style="gap:12px;margin-bottom:12px">
           <div class="card">
             <div class="flex-between mb-8"><h3>自分のスキルバランス</h3><button class="btn-ghost btn-sm" onclick="showPage('kpi',document.querySelector('[onclick*=kpi]'))">詳細 →</button></div>
-            <div class="chart-wrap" style="height:160px"><canvas id="chartRadarDash" role="img" aria-label="営業スキルレーダーチャート">スキル評価グラフ</canvas></div>
+            <div class="chart-wrap" style="height:230px"><canvas id="chartRadarDash" role="img" aria-label="営業スキルレーダーチャート">スキル評価グラフ</canvas></div>
           </div>
           <div class="card">
             <div class="flex-between mb-8"><h3>今日のタスク</h3><span class="badge badge-red">3件未了</span></div>
@@ -1315,7 +1315,7 @@ async function renderDashMindCondition(){
         <p class="text-xs" style="margin-top:4px;line-height:1.4;color:var(--text)">${condText}</p>
       </div>
     </div>
-    <div class="chart-wrap" style="height:110px"><canvas id="chartDashMind"></canvas></div>`;
+    <div class="chart-wrap" style="height:170px"><canvas id="chartDashMind"></canvas></div>`;
 
   if(chartDashMind){chartDashMind.destroy();}
   const canvas = document.getElementById('chartDashMind');
