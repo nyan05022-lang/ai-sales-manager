@@ -3230,6 +3230,10 @@ function renderAdminMembers(){
         </tbody>
       </table>
     </div>
+    <div class="card mb-16" id="adminMemberDetailCard" style="display:none">
+      <div class="flex-between mb-12"><h3>個人詳細</h3><i class="ti ti-x" style="cursor:pointer" onclick="document.getElementById('adminMemberDetailCard').style.display='none'"></i></div>
+      <div id="adminMemberDetailContent"></div>
+    </div>
     <div class="card mb-16">
       <h3 class="mb-12">権限管理</h3>
       <table>
@@ -3242,10 +3246,6 @@ function renderAdminMembers(){
           </tr>`).join('')}
         </tbody>
       </table>
-    </div>
-    <div class="card" id="adminMemberDetailCard" style="display:none">
-      <div class="flex-between mb-12"><h3>個人詳細</h3><i class="ti ti-x" style="cursor:pointer" onclick="document.getElementById('adminMemberDetailCard').style.display='none'"></i></div>
-      <div id="adminMemberDetailContent"></div>
     </div>`;
 }
 function showAdminMemberDetail(userId){
