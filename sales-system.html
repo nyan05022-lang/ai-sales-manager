@@ -73,6 +73,9 @@ h1{font-size:22px;font-weight:600}h2{font-size:18px;font-weight:600}h3{font-size
 .nav-item.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blue);border-radius:0 2px 2px 0}
 .nav-item i{font-size:17px;width:18px;text-align:center}
 .nav-icon-wrap{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:var(--bg3);flex-shrink:0}
+.mind-circle{width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
+.mind-circle::before{content:'';position:absolute;inset:6px;border-radius:50%;background:#fff}
+.mind-circle-val{position:relative;z-index:1;text-align:center}
 .nav-item.active .nav-icon-wrap{background:#fff}
 .nav-item:hover .nav-icon-wrap{background:#fff}
 .sidebar-user{padding:12px 14px;border-top:1px solid var(--border);background:var(--bg3)}
@@ -368,19 +371,23 @@ tr:hover td{background:var(--bg3)}
             <div class="chart-wrap" style="height:220px"><canvas id="chartRadarDash" role="img" aria-label="営業スキルレーダーチャート">スキル評価グラフ</canvas></div>
           </div>
           <div class="card">
+            <div class="flex-between mb-12"><h3>マインド・コンディション</h3><button class="btn-ghost btn-sm" onclick="showPage('mind',document.querySelector('[onclick*=mind]'))">詳細 →</button></div>
+            <div id="dashMindCondition"><p class="text-muted text-sm">読込中...</p></div>
+          </div>
+        </div>
+        <div class="grid-2" style="gap:16px;margin-bottom:16px">
+          <div class="card">
             <div class="flex-between mb-12"><h3>最新の診断結果</h3><button class="btn-ghost btn-sm" onclick="showPage('profile',document.querySelector('[onclick*=profile]'))">詳細 →</button></div>
             <div id="dashPersonality"></div>
           </div>
-        </div>
-        <div class="grid-2" style="gap:16px">
           <div class="card">
             <div class="flex-between mb-12"><h3>今日のタスク</h3><span class="badge badge-red">3件未了</span></div>
             <div id="todayTasks"></div>
           </div>
-          <div class="card">
-            <div class="flex-between mb-12"><h3>AIコーチからのアドバイス</h3><button class="btn-ghost btn-sm" onclick="showPage('coach',document.querySelector('[onclick*=coach]'))">詳細 →</button></div>
-            <div id="dashCoachAdvice" class="ai-box"><p style="font-size:13px;line-height:1.7">日報を入力するとAIアドバイスが表示されます</p></div>
-          </div>
+        </div>
+        <div class="card">
+          <div class="flex-between mb-12"><h3>AIコーチからのアドバイス</h3><button class="btn-ghost btn-sm" onclick="showPage('coach',document.querySelector('[onclick*=coach]'))">詳細 →</button></div>
+          <div id="dashCoachAdvice" class="ai-box"><p style="font-size:13px;line-height:1.7">日報を入力するとAIアドバイスが表示されます</p></div>
         </div>
       </div>
 
@@ -1266,6 +1273,62 @@ function initDashboard(){
   renderDashRadar();
   renderDashPersonality();
   renderDashCoachAdvice(monthReports, goals);
+  renderDashMindCondition();
+}
+let chartDashMind;
+async function renderDashMindCondition(){
+  const el = document.getElementById('dashMindCondition');
+  if(!el) return;
+  if(state.userId && mindJournals.length===0){
+    await loadMindJournals();
+  }
+  if(mindJournals.length===0){
+    el.innerHTML = '<p class="text-muted text-sm">マインドチェックを記録すると表示されます</p>';
+    return;
+  }
+  const recent = mindJournals.slice(-4);
+  const avgOf = key => {
+    const vals = recent.map(j=>j[key]).filter(v=>v!=null);
+    return vals.length>0 ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20) : 0;
+  };
+  const axes = [
+    {key:'agency', label:'主体性'},
+    {key:'openness', label:'協調性'},
+    {key:'efficacy', label:'達成意欲'},
+    {key:'persistence', label:'柔軟性'},
+    {key:'resilience', label:'ストレス耐性'},
+  ];
+  const values = axes.map(a=>avgOf(a.key));
+  const overall = Math.round(values.reduce((a,b)=>a+b,0)/values.length);
+  const burnout = calcBurnout(mindJournals);
+  const condColor = burnout.burnoutScore>=50?'var(--red)':burnout.burnoutScore>=25?'var(--amber)':'var(--green)';
+  const condLabel = burnout.burnoutScore>=50?'要注意':burnout.burnoutScore>=25?'やや注意':'良好';
+  const condText = burnout.burnoutScore>=50?'ストレスや疲弊の兆候が見られます。早めのセルフケアを。':burnout.burnoutScore>=25?'一部の指標に低下傾向があります。様子を見ましょう。':'活動量・マインドともに良好な状態です。';
+  const gaugeColor = overall>=80?'#34d399':overall>=60?'#4f8ef7':overall>=40?'#fbbf24':'#f87171';
+
+  el.innerHTML = `
+    <div class="flex gap-16 mb-16" style="align-items:center">
+      <div class="mind-circle" style="background:conic-gradient(${gaugeColor} ${overall*3.6}deg, var(--bg3) 0deg)">
+        <div class="mind-circle-val"><div style="font-size:20px;font-weight:700;color:${gaugeColor}">${overall}</div><div class="text-xs text-muted">/100</div></div>
+      </div>
+      <div style="flex:1">
+        <div class="text-xs text-muted mb-4">総合スコア</div>
+        <div class="flex gap-8" style="align-items:center">
+          <span class="badge" style="background:${condColor}22;color:${condColor}">${condLabel}</span>
+          <span class="text-xs text-muted">コンディション（直近${recent.length}回）</span>
+        </div>
+        <p class="text-xs" style="margin-top:6px;line-height:1.6;color:var(--text)">${condText}</p>
+      </div>
+    </div>
+    <div class="chart-wrap" style="height:160px"><canvas id="chartDashMind"></canvas></div>`;
+
+  if(chartDashMind){chartDashMind.destroy();}
+  const canvas = document.getElementById('chartDashMind');
+  chartDashMind = new Chart(canvas.getContext('2d'), {
+    type:'radar',
+    data:{labels:axes.map(a=>a.label), datasets:[{label:'マインド',data:values,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.15)',pointRadius:3,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{display:false},pointLabels:{font:{size:10}}}}}
+  });
 }
 function renderDashPersonality(){
   const el = document.getElementById('dashPersonality');
