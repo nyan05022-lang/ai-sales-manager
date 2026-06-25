@@ -996,14 +996,16 @@ function computeDiagType(){
     if(opt) scores[opt.type]++;
   });
   const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
-  return sorted[0][0];
+  return {type:sorted[0][0], scores};
 }
 function nextDiagStep(){
   if(Object.keys(diagAnswers).length < DIAG_QUESTIONS.length){
     showNotif('全ての質問に回答してください');
     return;
   }
-  state.selectedType = computeDiagType();
+  const result = computeDiagType();
+  state.selectedType = result.type;
+  state.personalityScores = result.scores;
   document.getElementById('diagStep').style.display='none';
   document.getElementById('goalStep').style.display='block';
   document.getElementById('s2').classList.remove('active');document.getElementById('s2').classList.add('done');
@@ -1047,7 +1049,7 @@ async function completeRegister(){
   state.user.goals = {sales:+document.getElementById('goalSales').value,appo:+document.getElementById('goalAppo').value,meeting:+document.getElementById('goalMeeting').value,contract:+document.getElementById('goalContract').value};
   const isCreator = regData.mode==='create';
   state.user.isAdmin = isCreator;
-  await sb.from('profiles').upsert({id:state.userId, name, team:teamName, team_id:teamId, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders, is_admin:isCreator});
+  await sb.from('profiles').upsert({id:state.userId, name, team:teamName, team_id:teamId, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders, is_admin:isCreator, personality_scores:state.personalityScores||{}});
   state.crm = defaultCRM();
   state.tasks = defaultTasks();
   document.getElementById('registerPage').style.display='none';
@@ -1073,6 +1075,7 @@ async function loadUserData(userId){
     state.user.goals = profile.goals||{sales:500,appo:30,meeting:15,contract:5};
     state.user.isAdmin = profile.is_admin||false;
     state.user.teamId = profile.team_id||null;
+    state.personalityScores = profile.personality_scores||null;
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
     document.getElementById('navAdmin').style.display = 'none';
     document.getElementById('navSectionAdmin').style.display = 'none';
@@ -2454,6 +2457,37 @@ function renderMindAnalysis(){
 }
 
 // ===== PROFILE =====
+function renderPersonalityBreakdown(){
+  const scores = state.personalityScores;
+  if(!scores || Object.values(scores).every(v=>!v)) return '';
+  const total = Object.values(scores).reduce((a,b)=>a+b,0) || 7;
+  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  const [primaryKey, primaryVal] = sorted[0];
+  const [secondKey, secondVal] = sorted[1];
+  const bars = Object.entries(scores).map(([k,v])=>{
+    const def = PERSONALITY[k];
+    const pct = Math.round(v/total*100);
+    return `<div style="margin-bottom:8px">
+      <div class="flex-between text-xs mb-4"><span>${def.icon} ${def.label}</span><span style="font-weight:600">${v} / ${total}問（${pct}%）</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${def.color}"></div></div>
+    </div>`;
+  }).join('');
+
+  let blendNote = '';
+  if(secondVal>0 && primaryVal - secondVal <= 1){
+    const pDef = PERSONALITY[primaryKey], sDef = PERSONALITY[secondKey];
+    blendNote = `<p style="font-size:12px;line-height:1.7;margin-top:8px;color:var(--text)">
+      <strong>${pDef.label}</strong>を中心としつつ、<strong>${sDef.label}</strong>の傾向も強く出ています。
+      ${pDef.strength}を軸にしながら、${sDef.strength}も意識的に活かすとバランスの取れた営業スタイルになります。
+    </p>`;
+  }
+
+  return `
+    <hr class="separator">
+    <h4 class="mb-8" style="font-size:13px">診断結果の詳細（全7問の回答内訳）</h4>
+    ${bars}
+    ${blendNote}`;
+}
 function copyTeamCode(){
   navigator.clipboard.writeText(state.user.teamCode||'');
   showNotif('チームコードをコピーしました');
@@ -2475,7 +2509,8 @@ function initProfile(){
       <div style="background:var(--bg3);border-radius:var(--radius);padding:10px"><div class="text-muted mb-4">強み</div><div>${p.strength}</div></div>
       <div style="background:var(--bg3);border-radius:var(--radius);padding:10px"><div class="text-muted mb-4">成長ポイント</div><div>${p.weakness}</div></div>
     </div>
-    <div class="ai-box mt-12"><div class="ai-box-header"><i class="ti ti-sparkles"></i>AIアドバイス</div><p style="font-size:13px;line-height:1.7">${p.advice}</p></div>`;
+    <div class="ai-box mt-12"><div class="ai-box-header"><i class="ti ti-sparkles"></i>AIアドバイス</div><p style="font-size:13px;line-height:1.7">${p.advice}</p></div>
+    ${renderPersonalityBreakdown()}`;
 
   const mReports = getMonthReports();
   const mSales = mReports.reduce((s,r)=>s+(r.sales||0),0);
