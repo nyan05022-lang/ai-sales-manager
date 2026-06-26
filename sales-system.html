@@ -726,6 +726,11 @@ tr:hover td{background:var(--bg3)}
                 <span class="text-xs text-muted">チーム招待コード：<strong id="teamCodeVal" style="color:var(--blue);font-family:monospace"></strong></span>
                 <button class="btn-ghost btn-sm" onclick="copyTeamCode()">コピー</button>
               </div>
+              <div class="flex-between" id="teamNameEditArea" style="display:none;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:12px;gap:8px">
+                <span class="text-xs text-muted" style="white-space:nowrap">チーム名：</span>
+                <input type="text" id="teamNameEditInput" class="input" style="flex:1" placeholder="チーム名">
+                <button class="btn-primary btn-sm" onclick="saveTeamName()">保存</button>
+              </div>
               <hr class="separator">
               <div id="personalityResult"></div>
             </div>
@@ -2947,11 +2952,26 @@ function fallbackCopyText(text){
   }
   document.body.removeChild(ta);
 }
+async function saveTeamName(){
+  if(!state.user.isAdmin || !state.user.teamId){showNotif('管理者権限がありません');return;}
+  const newName = document.getElementById('teamNameEditInput').value.trim();
+  if(!newName){showNotif('チーム名を入力してください');return;}
+  const {error} = await sb.from('teams').update({name:newName}).eq('id',state.user.teamId);
+  if(error){showNotif('更新に失敗しました');return;}
+  state.user.team = newName;
+  const sidebarTeamName = document.getElementById('sidebarTeamName');
+  if(sidebarTeamName) sidebarTeamName.textContent = newName;
+  showNotif('チーム名を更新しました');
+}
 let chartGrowth;
 function initProfile(){
   if(state.user.teamCode){
     document.getElementById('teamCodeArea').style.display='flex';
     document.getElementById('teamCodeVal').textContent=state.user.teamCode;
+  }
+  if(state.user.isAdmin && state.user.teamId){
+    document.getElementById('teamNameEditArea').style.display='flex';
+    document.getElementById('teamNameEditInput').value=state.user.team||'';
   }
   const p=DIMENSION_DEFS[state.user.type]||DIMENSION_DEFS.action;
   const composite = getCompositeType(state.personalityScores);
