@@ -291,8 +291,8 @@ tr:hover td{background:var(--bg3)}
 <div id="app" style="display:none">
   <nav class="sidebar">
     <div class="sidebar-logo">
-      <span><i class="ti ti-rocket" style="color:var(--blue)"></i> Sales Compass</span>
-      <small>営業成長支援AI</small>
+      <span><i class="ti ti-rocket" style="color:var(--blue)"></i> <span id="sidebarTeamName">Sales Compass</span></span>
+      <small id="sidebarTeamSub">営業成長支援AI</small>
     </div>
     <div class="sidebar-nav" id="sidebarNav">
       <div class="nav-item active staff-nav" onclick="showPage('dashboard',this)"><span class="nav-icon-wrap"><i class="ti ti-layout-dashboard" style="color:#4f8ef7"></i></span><span>ダッシュボード</span></div>
@@ -1217,6 +1217,10 @@ function initApp(){
   const dashNav = document.querySelector('.nav-item[onclick*="dashboard"]');
   if(dashNav) dashNav.classList.add('active');
   document.getElementById('pageTitle').textContent = 'ダッシュボード';
+  if(state.user.team){
+    document.getElementById('sidebarTeamName').textContent = state.user.team;
+    document.getElementById('sidebarTeamSub').textContent = '営業成長支援AI';
+  }
   const u = state.user;
   const h = new Date().getHours();
   const greet = h<12?'おはようございます':h<18?'こんにちは':'こんばんは';
