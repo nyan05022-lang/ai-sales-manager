@@ -786,7 +786,7 @@ tr:hover td{background:var(--bg3)}
     <div class="flex-between mb-16"><h3>プロフィール編集</h3><i class="ti ti-x" style="cursor:pointer;font-size:18px" onclick="document.getElementById('profileModal').classList.remove('open')"></i></div>
     <div class="form-group"><label>氏名</label><input type="text" id="editName" placeholder="山田 太郎"></div>
     <div class="form-group"><label>チーム</label><select id="editTeam"><option>東京チームA</option><option>東京チームB</option><option>大阪チーム</option><option>名古屋チーム</option></select></div>
-    <div class="form-group"><label>営業タイプ</label><select id="editType"><option value="driver">ドライバー型</option><option value="expressive">エクスプレッシブ型</option><option value="analytical">アナリティカル型</option><option value="amiable">エミアブル型</option></select></div>
+    <div class="form-group"><label>診断タイプ（最も得点の高い項目）</label><select id="editType"><option value="action">⚡ 行動力</option><option value="goal">🎯 目標達成力</option><option value="empathy">🤝 共感力</option><option value="communication">🗣️ コミュニケーション力</option><option value="analysis">🔍 分析力</option><option value="planning">📋 計画力</option><option value="growth">🌱 成長意欲</option><option value="adaptability">🚀 変化適応力</option></select></div>
     <div class="flex gap-8 mt-16">
       <button class="btn-primary" onclick="saveProfileEdit()">保存</button>
       <button class="btn-ghost" onclick="document.getElementById('profileModal').classList.remove('open')">キャンセル</button>
@@ -849,7 +849,7 @@ let state = {
   tasks: [],
   sliders: {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0},
   rankTab:'weekly',
-  selectedType: 'driver',
+  selectedType: 'action',
   userId: null
 };
 
@@ -857,12 +857,6 @@ function defaultCRM(){return[];}
 function defaultTasks(){return[];}
 
 
-const PERSONALITY = {
-  driver:{label:'ドライバー型',icon:'⚡',color:'var(--amber)',desc:'行動力と結果へのこだわりが強く、スピード感のある営業スタイルが特徴です。目標達成意欲が高く、困難な状況でも諦めずに前進する力があります。',strength:'行動力・結果志向・推進力',weakness:'計画性・丁寧さ・傾聴力',advice:'クロージング力を活かしつつ、ヒアリング時間を意識的に増やすことで成約率がさらに向上します。'},
-  expressive:{label:'エクスプレッシブ型',icon:'🌟',color:'var(--pink)',desc:'人間関係の構築が得意で、顧客との信頼関係を素早く形成できます。感情豊かなコミュニケーションで顧客の心を動かす力があります。',strength:'共感力・関係構築・表現力',weakness:'論理的説明・数値管理・細部詰め',advice:'感情的なつながりを大切にしながら、データや事実をベースにした提案を組み合わせると説得力が増します。'},
-  analytical:{label:'アナリティカル型',icon:'🔍',color:'var(--blue)',desc:'データと論理を重視し、緻密な準備と分析に基づいた提案が得意です。顧客の課題を体系的に整理し、論理的に解決策を提示できます。',strength:'分析力・準備力・論理的説明',weakness:'行動スピード・感情的アプローチ',advice:'分析力を活かした提案に加え、意思決定を後押しするクロージングのタイミングを意識することが重要です。'},
-  amiable:{label:'エミアブル型',icon:'🤝',color:'var(--teal)',desc:'協調性が高く、顧客や同僚との信頼関係を大切にします。長期的な関係構築が得意で、リピート率や紹介受注に強みがあります。',strength:'協調性・信頼構築・継続力',weakness:'主張力・クロージング・新規開拓',advice:'築いた信頼関係を活かして、より積極的にクロージングに向けたアクションを取ることで成約率が上がります。'}
-};
 
 const SLIDERS_DEF = [
   {key:'rapport',label:'ラポール形成力',desc:'顧客との信頼関係構築'},
@@ -927,7 +921,7 @@ async function completeRediag(){
   }
   const result = computeDiagType();
   state.user.type = result.type;
-  state.user.typeLabel = PERSONALITY[result.type].label;
+  state.user.typeLabel = DIMENSION_DEFS[result.type].label;
   state.personalityScores = result.scores;
   state.needsDiagnosis = false;
   await sb.from('profiles').upsert({id:state.userId, type:state.user.type, type_label:state.user.typeLabel, personality_scores:state.personalityScores});
@@ -976,55 +970,65 @@ function goToRegisterFlow(){
   diagAnswers = {};
   renderDiagQuestions();
 }
+const DIMENSION_DEFS = {
+  action:{label:'行動力',icon:'⚡',color:'var(--amber)',desc:'とにかく動ける力・挑戦力に優れています。',advice:'行動力を活かしつつ、事前準備や計画力を意識すると更に成果が安定します。'},
+  goal:{label:'目標達成力',icon:'🎯',color:'var(--red)',desc:'数字へのコミットとやり切る力に優れています。',advice:'目標達成への強い意志を活かし、プロセスの振り返りも取り入れるとさらに成長します。'},
+  empathy:{label:'共感力',icon:'🤝',color:'var(--teal)',desc:'相手の気持ちを理解し信頼関係を築く力に優れています。',advice:'共感力を活かしつつ、論理的な提案も組み合わせると説得力が増します。'},
+  communication:{label:'コミュニケーション力',icon:'🗣️',color:'var(--pink)',desc:'会話力・表現力・場を作る力に優れています。',advice:'場を作る力を活かし、相手の話をじっくり聞く時間も意識的に増やしましょう。'},
+  analysis:{label:'分析力',icon:'🔍',color:'var(--blue)',desc:'課題発見・論理的思考・準備力に優れています。',advice:'分析力を活かしつつ、行動のスピードも意識すると更に成果が伸びます。'},
+  planning:{label:'計画力',icon:'📋',color:'var(--purple)',desc:'スケジュール管理・継続力・PDCAに優れています。',advice:'計画力を活かしながら、状況変化への柔軟な対応も意識しましょう。'},
+  growth:{label:'成長意欲',icon:'🌱',color:'var(--green)',desc:'学習意欲・素直さ・改善力に優れています。',advice:'学ぶ姿勢を活かし、学んだことを即実践に移すスピードも意識しましょう。'},
+  adaptability:{label:'変化適応力',icon:'🚀',color:'#fb923c',desc:'新しい環境への適応力・挑戦力に優れています。',advice:'変化への対応力を活かしつつ、軸となる強みを一つ持つとさらに安定します。'},
+};
 const DIAG_QUESTIONS = [
   { q:'あなたが最も「モチベーションが上がる」と感じる瞬間はどれですか？',
     opts:[
-      {l:'A',t:'目標を達成したり、人より高い成果を出して評価されたとき（成果・競争軸）',type:'driver'},
-      {l:'B',t:'顧客やチームのメンバーから「ありがとう」と感謝されたとき（貢献・対人軸）',type:'amiable'},
-      {l:'C',t:'新しい知識やスキルを身に付け、自分の成長を実感できたとき（自己成長軸）',type:'analytical'},
-      {l:'D',t:'計画通りに物事を進め、ミスなくやり遂げたとき（プロセス・安定軸）',type:'analytical'},
+      {l:'A',t:'目標を達成したり、人より高い成果を出して評価されたとき（成果・競争軸）',points:{goal:3,action:2}},
+      {l:'B',t:'顧客やチームのメンバーから「ありがとう」と感謝されたとき（貢献・対人軸）',points:{empathy:3,communication:2}},
+      {l:'C',t:'新しい知識やスキルを身に付け、自分の成長を実感できたとき（自己成長軸）',points:{growth:3,analysis:2}},
+      {l:'D',t:'計画通りに物事を進め、ミスなくやり遂げたとき（プロセス・安定軸）',points:{planning:3,analysis:2}},
     ]},
   { q:'高い目標に対して、思うように成果が出ないとき、最初に取る行動は？',
     opts:[
-      {l:'A',t:'とにかく行動量（打席数）を増やして、確率論で突破しようとする（行動量型）',type:'driver'},
-      {l:'B',t:'なぜ成果が出ないのか、これまでのプロセスを分析して改善策を考える（思考・分析型）',type:'analytical'},
-      {l:'C',t:'成果が出ている先輩や上司にすぐに相談し、アドバイスを仰ぐ（素直さ・巻き込み型）',type:'amiable'},
-      {l:'D',t:'一度気持ちをリフレッシュさせ、モチベーションを立て直してから再開する（メンタルコントロール型）',type:'expressive'},
+      {l:'A',t:'とにかく行動量（打席数）を増やして、確率論で突破しようとする（行動量型）',points:{action:3,goal:2}},
+      {l:'B',t:'なぜ成果が出ないのか、これまでのプロセスを分析して改善策を考える（思考・分析型）',points:{analysis:3,planning:2}},
+      {l:'C',t:'成果が出ている先輩や上司にすぐに相談し、アドバイスを仰ぐ（素直さ・巻き込み型）',points:{growth:2,empathy:3}},
+      {l:'D',t:'一度気持ちをリフレッシュさせ、モチベーションを立て直してから再開する（メンタルコントロール型）',points:{adaptability:2,planning:2}},
     ]},
   { q:'初対面の人と話すとき、あなたはどのような立ち回りをすることが多いですか？',
     opts:[
-      {l:'A',t:'自分から積極的に話題を提供し、場の雰囲気を盛り上げる（開拓・リード型）',type:'driver'},
-      {l:'B',t:'相手の話をじっくり聞き、相手が話しやすい空気を作る（傾聴・ヒアリング型）',type:'amiable'},
-      {l:'C',t:'相手のプロフィールや共通点を事前にリサーチし、戦略的に話す（準備・ロジカル型）',type:'analytical'},
-      {l:'D',t:'相手のテンションや好みに自然と自分を合わせる（適応・調和型）',type:'expressive'},
+      {l:'A',t:'自分から積極的に話題を提供し、場の雰囲気を盛り上げる（開拓・リード型）',points:{communication:3,action:2}},
+      {l:'B',t:'相手の話をじっくり聞き、相手が話しやすい空気を作る（傾聴・ヒアリング型）',points:{empathy:3,communication:2}},
+      {l:'C',t:'相手のプロフィールや共通点を事前にリサーチし、戦略的に話す（準備・ロジカル型）',points:{analysis:3,planning:2}},
+      {l:'D',t:'相手のテンションや好みに自然と自分を合わせる（適応・調和型）',points:{empathy:2,adaptability:3}},
     ]},
   { q:'自分で決めた目標（または与えられた目標）に対するあなたのスタンスは？',
     opts:[
-      {l:'A',t:'何が何でも達成する。未達成で終わることは絶対に避けたい（執着度：高）',type:'driver'},
-      {l:'B',t:'高めの目標を設定し、たとえ未達成でもプロセスで得られるものがあれば良い（プロセス重視）',type:'analytical'},
-      {l:'C',t:'確実に達成できる現実的な目標を立て、着実にクリアしていきたい（堅実重視）',type:'amiable'},
-      {l:'D',t:'目標の数字よりも、自分が納得して楽しく取り組めるかを重視したい（納得感重視）',type:'expressive'},
+      {l:'A',t:'何が何でも達成する。未達成で終わることは絶対に避けたい（執着度：高）',points:{goal:3,action:2}},
+      {l:'B',t:'高めの目標を設定し、たとえ未達成でもプロセスで得られるものがあれば良い（プロセス重視）',points:{growth:3,analysis:2}},
+      {l:'C',t:'確実に達成できる現実的な目標を立て、着実にクリアしていきたい（堅実重視）',points:{planning:3,analysis:2}},
+      {l:'D',t:'目標の数字よりも、自分が納得して楽しく取り組めるかを重視したい（納得感重視）',points:{empathy:2,adaptability:2}},
     ]},
   { q:'ルールや環境が急に変更されたり、新しい挑戦を求められたとき、どう感じますか？',
     opts:[
-      {l:'A',t:'チャンスだと捉え、ワクワクしてすぐに新しい環境に飛び込む（イノベーター型）',type:'driver'},
-      {l:'B',t:'変更の理由や背景を納得できれば、前向きに対応する（納得連動型）',type:'analytical'},
-      {l:'C',t:'少し不安や抵抗を感じるが、周囲の出方を見ながら徐々に適応する（慎重型）',type:'amiable'},
-      {l:'D',t:'これまでのやり方にこだわりがあり、変えることに対してストレスを感じやすい（保守型）',type:'amiable'},
+      {l:'A',t:'チャンスだと捉え、ワクワクしてすぐに新しい環境に飛び込む（イノベーター型）',points:{adaptability:3,action:2}},
+      {l:'B',t:'変更の理由や背景を納得できれば、前向きに対応する（納得連動型）',points:{analysis:2,adaptability:2}},
+      {l:'C',t:'少し不安や抵抗を感じるが、周囲の出方を見ながら徐々に適応する（慎重型）',points:{planning:2,empathy:1}},
+      {l:'D',t:'これまでのやり方にこだわりがあり、変えることに対してストレスを感じやすい（保守型）',points:{planning:3}},
     ]},
   { q:'周囲の友人から、あなたはどのような人だと言われることが多いですか？',
     opts:[
-      {l:'A',t:'「行動力がある」「エネルギーに溢れている」「負けず嫌い」（突破力）',type:'driver'},
-      {l:'B',t:'「話しやすい」「相談に乗ってくれる」「気が利く」（共感力）',type:'expressive'},
-      {l:'C',t:'「頭が良い」「計画性がある」「落ち着いている」（論理力）',type:'analytical'},
-      {l:'D',t:'「真面目」「コツコツやり抜く」「信頼できる」（継続力）',type:'amiable'},
+      {l:'A',t:'「行動力がある」「エネルギーに溢れている」「負けず嫌い」（突破力）',points:{action:3,goal:2}},
+      {l:'B',t:'「話しやすい」「相談に乗ってくれる」「気が利く」（共感力）',points:{empathy:3,communication:2}},
+      {l:'C',t:'「頭が良い」「計画性がある」「落ち着いている」（論理力）',points:{analysis:3,planning:2}},
+      {l:'D',t:'「真面目」「コツコツやり抜く」「信頼できる」（継続力）',points:{planning:3,growth:2}},
     ]},
   { q:'今回のインターンを通じて、あなたが「最も得たいもの」は何ですか？',
     opts:[
-      {l:'A',t:'同世代に圧倒的な差をつける「ビジネス戦闘力（稼ぐ力・営業力）」',type:'driver'},
-      {l:'B',t:'将来起業したり、組織をマネジメントしたりするための「経営・リーダー視点」',type:'driver'},
-      {l:'C',t:'就活や将来のキャリアで自信を持って語れる「目に見える実績・データ」',type:'analytical'},
-      {l:'D',t:'尊敬できる仲間や、社会人の先輩との「質の高いネットワーク（人脈）」',type:'expressive'},
+      {l:'A',t:'同世代に圧倒的な差をつける「ビジネス戦闘力（稼ぐ力・営業力）」',points:{action:2,goal:3}},
+      {l:'B',t:'将来起業したり、組織をマネジメントしたりするための「経営・リーダー視点」',points:{growth:3,adaptability:2}},
+      {l:'C',t:'就活や将来のキャリアで自信を持って語れる「目に見える実績・データ」',points:{goal:2,analysis:3}},
+      {l:'D',t:'尊敬できる仲間や、社会人の先輩との「質の高いネットワーク（人脈）」',points:{empathy:3,communication:2}},
     ]},
 ];
 let diagAnswers = {};
@@ -1049,12 +1053,15 @@ function selectDiagAnswer(qIndex, letter, el){
   el.classList.add('selected');
 }
 function computeDiagType(){
-  const scores = {driver:0, expressive:0, analytical:0, amiable:0};
+  const scores = {};
+  Object.keys(DIMENSION_DEFS).forEach(k=>scores[k]=0);
   DIAG_QUESTIONS.forEach((q,qi)=>{
     const letter = diagAnswers[qi];
     if(!letter) return;
     const opt = q.opts.find(o=>o.l===letter);
-    if(opt) scores[opt.type]++;
+    if(opt && opt.points){
+      Object.entries(opt.points).forEach(([k,v])=>{ scores[k] += v; });
+    }
   });
   const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
   return {type:sorted[0][0], scores};
@@ -1106,7 +1113,7 @@ async function completeRegister(){
   state.user.name = name;
   state.user.team = teamName;
   state.user.type = state.selectedType;
-  state.user.typeLabel = PERSONALITY[state.selectedType].label;
+  state.user.typeLabel = DIMENSION_DEFS[state.selectedType].label;
   state.user.goals = {sales:+document.getElementById('goalSales').value,appo:+document.getElementById('goalAppo').value,meeting:+document.getElementById('goalMeeting').value,contract:+document.getElementById('goalContract').value};
   const isCreator = regData.mode==='create';
   state.user.isAdmin = isCreator;
@@ -1119,7 +1126,7 @@ async function completeRegister(){
 }
 async function doLogout(){
   await sb.auth.signOut();
-  state = {user:{name:'',team:'',type:'driver',typeLabel:'ドライバー型',goals:{sales:500,appo:30,meeting:15,contract:5}},reports:[],crm:[],tasks:[],sliders:{rapport:50,hearing:50,deepdive:50,proposal:50,closing:50},rankTab:'weekly',selectedType:'driver',userId:null};
+  state = {user:{name:'',team:'',type:'action',typeLabel:'行動力',goals:{sales:500,appo:30,meeting:15,contract:5}},reports:[],crm:[],tasks:[],sliders:{rapport:50,hearing:50,deepdive:50,proposal:50,closing:50},rankTab:'weekly',selectedType:'action',userId:null};
   document.getElementById('app').style.display='none';
   document.getElementById('loginPage').style.display='flex';
 }
@@ -1131,8 +1138,8 @@ async function loadUserData(userId){
   if(profile){
     state.user.name = profile.name||'ユーザー';
     state.user.team = profile.team||'';
-    state.user.type = profile.type||'driver';
-    state.user.typeLabel = profile.type_label||'ドライバー型';
+    state.user.type = profile.type||'action';
+    state.user.typeLabel = profile.type_label||'行動力';
     state.user.goals = profile.goals||{sales:500,appo:30,meeting:15,contract:5};
     state.user.isAdmin = profile.is_admin||false;
     state.user.teamId = profile.team_id||null;
@@ -1319,8 +1326,11 @@ async function renderDashMindCondition(){
 function renderDashPersonality(){
   const el = document.getElementById('dashPersonality');
   if(!el) return;
-  const p = PERSONALITY[state.user.type];
+  const p = DIMENSION_DEFS[state.user.type];
   if(!p){ el.innerHTML='<p class="text-muted text-sm">診断を完了すると表示されます</p>'; return; }
+  const scores = state.personalityScores||{};
+  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  const others = sorted.slice(1,3).map(([k])=>DIMENSION_DEFS[k]);
   el.innerHTML = `
     <div class="flex gap-8 mb-8" style="align-items:center">
       <div style="font-size:24px">${p.icon}</div>
@@ -1330,10 +1340,7 @@ function renderDashPersonality(){
       </div>
     </div>
     <div class="flex gap-4" style="flex-wrap:wrap">
-      ${p.strength.split('・').map(s=>`<span class="badge badge-green" style="font-size:10px">${s}</span>`).join('')}
-    </div>
-    <div class="flex gap-4 mt-6" style="flex-wrap:wrap">
-      ${p.weakness.split('・').map(s=>`<span class="badge badge-amber" style="font-size:10px">${s}</span>`).join('')}
+      ${others.map(o=>`<span class="badge badge-green" style="font-size:10px">${o.icon} ${o.label}</span>`).join('')}
     </div>`;
 }
 function renderDashCoachAdvice(monthReports, goals){
@@ -1345,11 +1352,11 @@ function renderDashCoachAdvice(monthReports, goals){
   const totalCall = monthReports.reduce((s,r)=>s+(r.calls||0),0);
   const appoRate = totalCall>0?Math.round(totalAppo/totalCall*100):0;
   const salesAchieve = goals.sales>0?Math.round(totalSales/goals.sales*100):0;
-  const p = PERSONALITY[state.user.type]||PERSONALITY.driver;
+  const p = DIMENSION_DEFS[state.user.type]||DIMENSION_DEFS.action;
   el.innerHTML = `<p style="font-size:13px;line-height:1.8">
     今月の売上目標達成率は<strong>${salesAchieve}%</strong>、アポ率は<strong>${appoRate}%</strong>です。
     ${salesAchieve>=100?'目標を達成しています。この調子を維持しましょう。':'目標達成にはもう一段の行動量・質の向上が必要です。'}<br>
-    あなたの強みである「${p.strength.split('・')[0]}」を活かしつつ、${p.weakness.split('・')[0]}を意識すると更に成果が伸びます。
+    あなたの強みである「${p.label}」を活かしつつ、${p.advice}
   </p>`;
 }
 
@@ -2305,7 +2312,11 @@ function initCoach(){
     {icon:'ti-brain',text:'SPIN話法を意識した質問設計',status:'進行中'},
   ].map(g=>`<div class="flex-between" style="padding:7px 0;border-bottom:1px solid var(--border)"><div class="flex gap-8"><i class="ti ${g.icon}" style="color:var(--blue)"></i><span style="font-size:13px">${g.text}</span></div><span class="badge ${g.status==='達成'?'badge-green':g.status==='進行中'?'badge-blue':'badge-red'}">${g.status}</span></div>`).join('');
 
-  const p = PERSONALITY[state.user.type]||PERSONALITY.driver;
+  const p = DIMENSION_DEFS[state.user.type]||DIMENSION_DEFS.action;
+  const dimScores = state.personalityScores||{};
+  const dimSorted = Object.entries(dimScores).sort((a,b)=>b[1]-a[1]);
+  const strongDims = dimSorted.slice(0,2).map(([k])=>DIMENSION_DEFS[k]?.label).filter(Boolean).join('・')||p.label;
+  const weakDims = dimSorted.slice(-2).map(([k])=>DIMENSION_DEFS[k]?.label).filter(Boolean).join('・')||'-';
   const salesGap = goals.sales - totalSales;
   document.getElementById('coachPlan').innerHTML=`
     <div class="ai-box">
@@ -2314,7 +2325,7 @@ function initCoach(){
         <strong>タイプ：${state.user.typeLabel}</strong><br>
         【今月の状況】売上 ¥${totalSales}万 / アポ ${totalAppo}件 / 成約 ${totalContract}件<br>
         ${salesGap>0?`【残り目標】あと ¥${salesGap}万 で月間目標達成`:'【目標達成】今月の売上目標をクリアしました！'}<br>
-        【強み】${p.strength}<br>【成長ポイント】${p.weakness}<br>
+        【強み】${strongDims}<br>【成長ポイント】${weakDims}<br>
         【推奨アクション】<br>
         ① ${p.advice}<br>
         ② 毎商談後にチェックリストを記録して弱点を可視化<br>
@@ -2759,34 +2770,47 @@ function renderMindAnalysis(){
 }
 
 // ===== PROFILE =====
+function computeMaxPerDimension(){
+  const max = {};
+  Object.keys(DIMENSION_DEFS).forEach(k=>max[k]=0);
+  DIAG_QUESTIONS.forEach(q=>{
+    const perDim = {};
+    q.opts.forEach(o=>{
+      Object.entries(o.points||{}).forEach(([k,v])=>{ perDim[k] = Math.max(perDim[k]||0, v); });
+    });
+    Object.entries(perDim).forEach(([k,v])=>{ max[k] += v; });
+  });
+  return max;
+}
 function renderPersonalityBreakdown(){
   const scores = state.personalityScores;
   if(!scores || Object.values(scores).every(v=>!v)) return '';
-  const total = Object.values(scores).reduce((a,b)=>a+b,0) || 7;
+  const maxPerDim = computeMaxPerDimension();
   const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
   const [primaryKey, primaryVal] = sorted[0];
   const [secondKey, secondVal] = sorted[1];
   const bars = Object.entries(scores).map(([k,v])=>{
-    const def = PERSONALITY[k];
-    const pct = Math.round(v/total*100);
+    const def = DIMENSION_DEFS[k];
+    const max = maxPerDim[k]||1;
+    const pct = Math.round(v/max*100);
     return `<div style="margin-bottom:8px">
-      <div class="flex-between text-xs mb-4"><span>${def.icon} ${def.label}</span><span style="font-weight:600">${v} / ${total}問（${pct}%）</span></div>
+      <div class="flex-between text-xs mb-4"><span>${def.icon} ${def.label}</span><span style="font-weight:600">${v}点（${pct}%）</span></div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${def.color}"></div></div>
     </div>`;
   }).join('');
 
   let blendNote = '';
-  if(secondVal>0 && primaryVal - secondVal <= 1){
-    const pDef = PERSONALITY[primaryKey], sDef = PERSONALITY[secondKey];
+  if(secondVal>0 && primaryVal - secondVal <= 2){
+    const pDef = DIMENSION_DEFS[primaryKey], sDef = DIMENSION_DEFS[secondKey];
     blendNote = `<p style="font-size:12px;line-height:1.7;margin-top:8px;color:var(--text)">
       <strong>${pDef.label}</strong>を中心としつつ、<strong>${sDef.label}</strong>の傾向も強く出ています。
-      ${pDef.strength}を軸にしながら、${sDef.strength}も意識的に活かすとバランスの取れた営業スタイルになります。
+      ${pDef.label}を軸にしながら、${sDef.label}も意識的に活かすとバランスの取れた営業スタイルになります。
     </p>`;
   }
 
   return `
     <hr class="separator">
-    <h4 class="mb-8" style="font-size:13px">診断結果の詳細（全7問の回答内訳）</h4>
+    <h4 class="mb-8" style="font-size:13px">診断結果の詳細（8項目の回答内訳）</h4>
     ${bars}
     ${blendNote}`;
 }
@@ -2824,16 +2848,12 @@ function initProfile(){
     document.getElementById('teamCodeArea').style.display='flex';
     document.getElementById('teamCodeVal').textContent=state.user.teamCode;
   }
-  const p=PERSONALITY[state.user.type];
+  const p=DIMENSION_DEFS[state.user.type]||DIMENSION_DEFS.action;
   document.getElementById('personalityResult').innerHTML=`
     <div style="text-align:center;padding:12px 0">
       <div style="font-size:32px;margin-bottom:8px">${p.icon}</div>
       <div style="font-size:16px;font-weight:700;color:${p.color}">${p.label}</div>
       <p class="text-sm text-muted" style="margin:8px 0 12px;line-height:1.7">${p.desc}</p>
-    </div>
-    <div class="grid-2" style="gap:8px;font-size:12px">
-      <div style="background:var(--bg3);border-radius:var(--radius);padding:10px"><div class="text-muted mb-4">強み</div><div>${p.strength}</div></div>
-      <div style="background:var(--bg3);border-radius:var(--radius);padding:10px"><div class="text-muted mb-4">成長ポイント</div><div>${p.weakness}</div></div>
     </div>
     <div class="ai-box mt-12"><div class="ai-box-header"><i class="ti ti-sparkles"></i>AIアドバイス</div><p style="font-size:13px;line-height:1.7">${p.advice}</p></div>
     ${renderPersonalityBreakdown()}`;
@@ -2927,7 +2947,7 @@ async function saveProfileEdit(){
   state.user.name = document.getElementById('editName').value || state.user.name;
   state.user.team = document.getElementById('editTeam').value;
   state.user.type = document.getElementById('editType').value;
-  state.user.typeLabel = PERSONALITY[state.user.type].label;
+  state.user.typeLabel = DIMENSION_DEFS[state.user.type].label;
   await saveState();
   document.getElementById('profileModal').classList.remove('open');
   document.getElementById('profileName').textContent = state.user.name;
@@ -3248,7 +3268,7 @@ function showAdminMemberDetail(userId){
     </div>
     <h4 class="mb-8" style="font-size:13px">プロフィール</h4>
     <div class="card mb-16" style="background:var(--bg3)">
-      ${(()=>{ const ptype = PERSONALITY[p.type]||PERSONALITY.driver; return `
+      ${(()=>{ const ptype = DIMENSION_DEFS[p.type]||DIMENSION_DEFS.action; return `
       <div class="flex gap-16 mb-12">
         <div style="font-size:32px">${ptype.icon}</div>
         <div>
