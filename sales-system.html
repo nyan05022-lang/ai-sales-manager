@@ -2842,34 +2842,19 @@ function computeMaxPerDimension(){
 function renderPersonalityBreakdown(){
   const scores = state.personalityScores;
   if(!scores || Object.values(scores).every(v=>!v)) return '';
-  const maxPerDim = computeMaxPerDimension();
   const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
-  const [primaryKey, primaryVal] = sorted[0];
-  const [secondKey, secondVal] = sorted[1];
-  const bars = Object.entries(scores).map(([k,v])=>{
-    const def = DIMENSION_DEFS[k];
-    const max = maxPerDim[k]||1;
-    const pct = Math.round(v/max*100);
-    return `<div style="margin-bottom:8px">
-      <div class="flex-between text-xs mb-4"><span>${def.icon} ${def.label}</span><span style="font-weight:600">${v}点（${pct}%）</span></div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${def.color}"></div></div>
-    </div>`;
-  }).join('');
-
-  let blendNote = '';
-  if(secondVal>0 && primaryVal - secondVal <= 2){
-    const pDef = DIMENSION_DEFS[primaryKey], sDef = DIMENSION_DEFS[secondKey];
-    blendNote = `<p style="font-size:12px;line-height:1.7;margin-top:8px;color:var(--text)">
-      <strong>${pDef.label}</strong>を中心としつつ、<strong>${sDef.label}</strong>の傾向も強く出ています。
-      ${pDef.label}を軸にしながら、${sDef.label}も意識的に活かすとバランスの取れた営業スタイルになります。
-    </p>`;
-  }
-
+  const strengths = sorted.slice(0,3).map(([k])=>DIMENSION_DEFS[k]);
+  const weaknesses = sorted.slice(-3).reverse().map(([k])=>DIMENSION_DEFS[k]);
   return `
     <hr class="separator">
-    <h4 class="mb-8" style="font-size:13px">診断結果の詳細（8項目の回答内訳）</h4>
-    ${bars}
-    ${blendNote}`;
+    <h4 class="mb-8" style="font-size:13px">強み</h4>
+    <div class="flex gap-6 mb-12" style="flex-wrap:wrap">
+      ${strengths.map(d=>`<span class="badge badge-blue">${d.icon} ${d.label}</span>`).join('')}
+    </div>
+    <h4 class="mb-8" style="font-size:13px">課題</h4>
+    <div class="flex gap-6" style="flex-wrap:wrap">
+      ${weaknesses.map(d=>`<span class="badge badge-blue">${d.icon} ${d.label}</span>`).join('')}
+    </div>`;
 }
 function copyTeamCode(){
   const code = state.user.teamCode||'';
