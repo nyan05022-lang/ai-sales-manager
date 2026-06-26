@@ -2956,8 +2956,8 @@ async function saveTeamName(){
   if(!state.user.isAdmin || !state.user.teamId){showNotif('管理者権限がありません');return;}
   const newName = document.getElementById('teamNameEditInput').value.trim();
   if(!newName){showNotif('チーム名を入力してください');return;}
-  const {error} = await sb.from('teams').update({name:newName}).eq('id',state.user.teamId);
-  if(error){showNotif('更新に失敗しました');return;}
+  const {data, error} = await sb.from('teams').update({name:newName}).eq('id',state.user.teamId).select();
+  if(error || !data || data.length===0){showNotif('更新に失敗しました（権限設定を確認してください）');return;}
   state.user.team = newName;
   const sidebarTeamName = document.getElementById('sidebarTeamName');
   if(sidebarTeamName) sidebarTeamName.textContent = newName;
