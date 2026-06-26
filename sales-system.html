@@ -49,7 +49,15 @@ h1{font-size:22px;font-weight:600}h2{font-size:18px;font-weight:600}h3{font-size
 .separator{border:none;border-top:1px solid var(--border);margin:16px 0}
 
 /* LOGIN */
-#loginPage{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(145deg,#d6edf8 0%,#eef6fb 60%,#dff0f8 100%)}
+#loginPage{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:#F8FAFC;color:#111827}
+#loginPage .card{background:#FFFFFF;border-color:#E5E7EB}
+#loginPage .logo-icon,#loginPage .auth-tab.active{color:#2563EB}
+#loginPage .auth-tab.active{box-shadow:0 1px 4px rgba(37,99,235,.12)}
+#loginPage input,#loginPage select,#loginPage textarea{border-color:#E5E7EB;color:#111827}
+#loginPage input:focus,#loginPage select:focus,#loginPage textarea:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+#loginPage .btn-primary{background:#2563EB}
+#loginPage .btn-primary:hover{background:#1D4ED8}
+#loginPage h1,#loginPage label{color:#111827}
 .login-box{width:100%;max-width:420px}
 .logo{text-align:center;margin-bottom:32px}
 .logo-icon{font-size:40px;color:var(--blue);display:block;margin-bottom:8px}
