@@ -380,7 +380,6 @@ tr:hover td{background:var(--bg3)}
               <div class="tab active" onclick="switchMiniRankTab('sales',this)">売上</div>
               <div class="tab" onclick="switchMiniRankTab('closeRate',this)">受注率</div>
               <div class="tab" onclick="switchMiniRankTab('meeting',this)">商談件数</div>
-              <div class="tab" onclick="switchMiniRankTab('mind',this)">マインド</div>
             </div>
             <div id="miniRanking" class="mt-8"></div>
           </div>
@@ -3048,6 +3047,20 @@ function renderAdminMind(){
         </div>
       </div>`).join('')}
     </div>`:''}
+    <div class="card mb-16">
+      <h3 class="mb-12">マインドスコアランキング</h3>
+      ${(()=>{
+        const ranked = rows.filter(r=>r.burnout).sort((a,b)=>b.burnout.mindScore-a.burnout.mindScore);
+        if(ranked.length===0) return '<p class="text-muted text-sm">記録のあるメンバーがいません</p>';
+        const medalColor=['#fbbf24','#cbd5e1','#fb923c'];
+        return ranked.map((r,i)=>`<div class="flex gap-8" style="padding:7px 0;border-bottom:1px solid var(--border);align-items:center">
+          <div style="width:20px;height:20px;border-radius:50%;background:${i<3?medalColor[i]:'var(--bg3)'};color:${i<3?'#fff':'var(--text2)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
+          <div style="flex-shrink:0;width:120px;font-size:13px;font-weight:500">${r.p.name||'(未設定)'}</div>
+          <div style="flex:1;background:var(--bg4);border-radius:4px;height:7px"><div style="width:${r.burnout.mindScore}%;background:#a78bfa;height:7px;border-radius:4px"></div></div>
+          <div style="width:50px;text-align:right;font-size:13px;font-weight:600">${r.burnout.mindScore}点</div>
+        </div>`).join('');
+      })()}
+    </div>
     <div class="card mb-16">
       <h3 class="mb-12">メンバー別マインド状況</h3>
       <table>
