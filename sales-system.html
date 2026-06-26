@@ -694,6 +694,10 @@ tr:hover td{background:var(--bg3)}
           </div>
         </div>
         <div class="card mt-16">
+          <div class="flex-between mb-12"><h3>AIコンディション管理</h3><span class="badge badge-purple">週次分析</span></div>
+          <div id="mindAICoaching"><p class="text-muted text-sm">ジャーナルを記録するとAIが現状を分析します</p></div>
+        </div>
+        <div class="card mt-16">
           <div class="flex-between mb-12"><h3>週次マインドチェック</h3><span class="badge badge-blue">週1回</span></div>
           <div id="mindCheckGate"></div>
           <div id="mindCheckForm" style="display:none">
@@ -2673,6 +2677,64 @@ async function loadMindJournals(){
   renderMindAnalysis();
   renderMindCheckGate();
   renderMindGrowthRate();
+  renderMindAICoaching();
+}
+const MIND_AXIS_ADVICE = {
+  resilience: '今週は一度立ち止まり、深呼吸や軽い運動などでリフレッシュする時間を意識的に作りましょう。失敗を「結果」ではなく「データ」として捉え直すと気持ちが立て直しやすくなります。',
+  agency: '次の商談やタスクで「指示を待たず自分から動く」場面を1つ決めて実行してみましょう。小さな自発的行動の積み重ねが主体性を強化します。',
+  efficacy: '直近で上手くいった小さな成功を1つ書き出してみましょう。自分の成果を可視化することで自己効力感が回復しやすくなります。',
+  openness: '今週もらったフィードバックを1つ選び、24時間以内に行動に反映してみましょう。素直に試すこと自体が成長のサインです。',
+  persistence: '大きな目標を1日単位の小さなタスクに分割し、まず1つだけ確実に終わらせることを優先しましょう。',
+};
+function renderMindAICoaching(){
+  const el = document.getElementById('mindAICoaching');
+  if(!el) return;
+  if(mindJournals.length===0){
+    el.innerHTML = '<p class="text-muted text-sm">ジャーナルを記録するとAIが現状を分析します</p>';
+    return;
+  }
+  const burnout = calcBurnout(mindJournals);
+  const recent = mindJournals.slice(-4);
+  const avgOf = key => {
+    const vals = recent.map(j=>j[key]).filter(v=>v!=null);
+    return vals.length>0 ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20) : 0;
+  };
+  const axisScores = {resilience:avgOf('resilience'),agency:avgOf('agency'),efficacy:avgOf('efficacy'),openness:avgOf('openness'),persistence:avgOf('persistence')};
+  const weakestKey = Object.entries(axisScores).sort((a,b)=>a[1]-b[1])[0][0];
+  const weakestLabel = MIND_QUESTIONS.find(q=>q.key===weakestKey).label;
+
+  // 直近2回のジャーナルを比較した週次トレンド
+  let trendHtml = '';
+  if(mindJournals.length>=2){
+    const overallOf = j => {
+      const vals=[j.resilience,j.agency,j.efficacy,j.openness,j.persistence,j.mood*20/20].filter(v=>v!=null);
+      return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20);
+    };
+    const last = mindJournals[mindJournals.length-1];
+    const prev = mindJournals[mindJournals.length-2];
+    const diff = overallOf(last) - overallOf(prev);
+    const trendColor = diff>0?'var(--green)':diff<0?'var(--red)':'var(--text2)';
+    const trendText = diff>0?`前回より <strong style="color:${trendColor}">+${diff}pt</strong> 向上しています。良い流れを継続しましょう。`
+      : diff<0?`前回より <strong style="color:${trendColor}">${diff}pt</strong> 低下しています。無理をしすぎていないか振り返ってみましょう。`
+      : '前回と同水準を維持しています。';
+    trendHtml = `<p style="font-size:13px;line-height:1.7;margin-bottom:10px">${trendText}</p>`;
+  }
+
+  const condLabel = burnout.burnoutScore>=50?'要注意':burnout.burnoutScore>=25?'やや注意':'良好';
+  const condColor = burnout.burnoutScore>=50?'var(--red)':burnout.burnoutScore>=25?'var(--amber)':'var(--green)';
+
+  el.innerHTML = `
+    <div class="ai-box">
+      <div class="ai-box-header"><i class="ti ti-sparkles"></i>AIマネジメントコメント</div>
+      ${trendHtml}
+      <p style="font-size:13px;line-height:1.7;margin-bottom:10px">
+        現在のコンディションは <span class="badge" style="background:${condColor}22;color:${condColor}">${condLabel}</span> です。
+        今週は特に「<strong>${weakestLabel}</strong>」（${axisScores[weakestKey]}点）が他の指標より低めです。
+      </p>
+      <div style="padding:10px 12px;background:var(--bg3);border-radius:var(--radius);font-size:12px;line-height:1.7">
+        💡 ${MIND_AXIS_ADVICE[weakestKey]}
+      </div>
+    </div>`;
 }
 function renderMindGrowthRate(){
   const badge = document.getElementById('mindGrowthBadge');
