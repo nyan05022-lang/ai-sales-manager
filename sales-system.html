@@ -980,6 +980,52 @@ const DIMENSION_DEFS = {
   growth:{label:'成長意欲',icon:'🌱',color:'var(--green)',desc:'学習意欲・素直さ・改善力に優れています。',advice:'学ぶ姿勢を活かし、学んだことを即実践に移すスピードも意識しましょう。'},
   adaptability:{label:'変化適応力',icon:'🚀',color:'#fb923c',desc:'新しい環境への適応力・挑戦力に優れています。',advice:'変化への対応力を活かしつつ、軸となる強みを一つ持つとさらに安定します。'},
 };
+// 上位2項目の組み合わせから、AIが営業タイプを判定するためのテーブル
+const COMPOSITE_TYPES = {
+  'action_goal':{label:'アタッカー型',desc:'圧倒的な行動量とやり切る力で、目標を正面から突破していくタイプです。'},
+  'action_empathy':{label:'パッショネート型',desc:'情熱的に動きながら、人との繋がりも大切にするタイプです。'},
+  'action_communication':{label:'リーダー型',desc:'自ら動き、周囲を巻き込みながら物事を前進させるタイプです。'},
+  'action_analysis':{label:'スピードストラテジスト型',desc:'スピード感を持ちながらも、分析に基づいて動くタイプです。'},
+  'action_planning':{label:'プレイングマネージャー型',desc:'行動力と計画力を兼ね備え、着実に前進していくタイプです。'},
+  'action_growth':{label:'チャレンジャー型',desc:'行動しながら学び、経験を通じて成長していくタイプです。'},
+  'action_adaptability':{label:'イノベーター型',desc:'新しい環境に飛び込み、行動を通じて変化を生み出すタイプです。'},
+  'goal_empathy':{label:'サーバントリーダー型',desc:'目標達成への強い意志と、相手への配慮を両立するタイプです。'},
+  'goal_communication':{label:'クローザー型',desc:'数字への執念と巻き込み力で、成約に導くタイプです。'},
+  'goal_analysis':{label:'ストラテジッククローザー型',desc:'データに基づいて、確実に目標を達成していくタイプです。'},
+  'goal_planning':{label:'ビルダー型',desc:'計画的に積み上げながら、目標を確実に達成するタイプです。'},
+  'goal_growth':{label:'グロースハッカー型',desc:'学びながら、目標達成を追求し続けるタイプです。'},
+  'goal_adaptability':{label:'アジャイルアチーバー型',desc:'変化に対応しながらも、確実に結果を出すタイプです。'},
+  'empathy_communication':{label:'リレーションシップ型',desc:'対人関係構築力に優れ、信頼関係を軸に営業するタイプです。'},
+  'empathy_analysis':{label:'コンサルタント型',desc:'相手の課題に共感しつつ、論理的に解決策を導くタイプです。'},
+  'empathy_planning':{label:'カウンセラー型',desc:'相手に寄り添いながら、計画的に関係を深めるタイプです。'},
+  'empathy_growth':{label:'メンター型',desc:'共感力と学ぶ姿勢を活かし、相手と共に成長していくタイプです。'},
+  'empathy_adaptability':{label:'ハーモナイザー型',desc:'相手や状況に合わせて、柔軟に関係を築くタイプです。'},
+  'communication_analysis':{label:'プレゼンター型',desc:'論理をわかりやすく伝える、表現力に優れたタイプです。'},
+  'communication_planning':{label:'ファシリテーター型',desc:'場をまとめながら、計画的に物事を進めるタイプです。'},
+  'communication_growth':{label:'インスパイア型',desc:'学びを言葉にして、周囲に良い影響を与えるタイプです。'},
+  'communication_adaptability':{label:'アンバサダー型',desc:'多様な人や場面に適応しながら、発信力を発揮するタイプです。'},
+  'analysis_planning':{label:'ストラテジスト型',desc:'データと計画に基づいて、着実に成果を出すタイプです。'},
+  'analysis_growth':{label:'リサーチャー型',desc:'分析的に学び続け、知見を深めていくタイプです。'},
+  'analysis_adaptability':{label:'スマートイノベーター型',desc:'論理的思考を武器に、変化へ対応していくタイプです。'},
+  'planning_growth':{label:'プランドグロース型',desc:'計画的に学び続け、継続的に成長していくタイプです。'},
+  'planning_adaptability':{label:'フレキシブルプランナー型',desc:'計画性と柔軟性を両立させるタイプです。'},
+  'growth_adaptability':{label:'パイオニア型',desc:'学びながら、新しい環境を切り拓いていくタイプです。'},
+};
+function getCompositeType(scores){
+  if(!scores) return null;
+  const sorted = Object.entries(scores).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(sorted.length===0) return null;
+  if(sorted.length===1){
+    const d = DIMENSION_DEFS[sorted[0][0]];
+    return {label:d.label+'型', desc:d.desc, keys:[sorted[0][0]]};
+  }
+  const [k1] = sorted[0], [k2] = sorted[1];
+  const key = [k1,k2].sort().join('_');
+  const comp = COMPOSITE_TYPES[key];
+  if(comp) return {...comp, keys:[k1,k2]};
+  const d = DIMENSION_DEFS[k1];
+  return {label:d.label+'型', desc:d.desc, keys:[k1,k2]};
+}
 const DIAG_QUESTIONS = [
   { q:'あなたが最も「モチベーションが上がる」と感じる瞬間はどれですか？',
     opts:[
@@ -1328,9 +1374,23 @@ function renderDashPersonality(){
   if(!el) return;
   const p = DIMENSION_DEFS[state.user.type];
   if(!p){ el.innerHTML='<p class="text-muted text-sm">診断を完了すると表示されます</p>'; return; }
-  const scores = state.personalityScores||{};
-  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
-  const others = sorted.slice(1,3).map(([k])=>DIMENSION_DEFS[k]);
+  const composite = getCompositeType(state.personalityScores);
+  if(composite && composite.keys && composite.keys.length>1){
+    const d1 = DIMENSION_DEFS[composite.keys[0]], d2 = DIMENSION_DEFS[composite.keys[1]];
+    el.innerHTML = `
+      <div class="flex gap-8 mb-8" style="align-items:center">
+        <div style="font-size:22px">${d1.icon}${d2.icon}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${p.color}">${composite.label}</div>
+          <p class="text-xs text-muted" style="margin-top:1px;line-height:1.4">${composite.desc}</p>
+        </div>
+      </div>
+      <div class="flex gap-4" style="flex-wrap:wrap">
+        <span class="badge badge-green" style="font-size:10px">${d1.icon} ${d1.label}</span>
+        <span class="badge badge-green" style="font-size:10px">${d2.icon} ${d2.label}</span>
+      </div>`;
+    return;
+  }
   el.innerHTML = `
     <div class="flex gap-8 mb-8" style="align-items:center">
       <div style="font-size:24px">${p.icon}</div>
@@ -1338,9 +1398,6 @@ function renderDashPersonality(){
         <div style="font-size:13px;font-weight:700;color:${p.color}">${p.label}</div>
         <p class="text-xs text-muted" style="margin-top:1px;line-height:1.4">${p.desc.slice(0,32)}...</p>
       </div>
-    </div>
-    <div class="flex gap-4" style="flex-wrap:wrap">
-      ${others.map(o=>`<span class="badge badge-green" style="font-size:10px">${o.icon} ${o.label}</span>`).join('')}
     </div>`;
 }
 function renderDashCoachAdvice(monthReports, goals){
@@ -2849,11 +2906,19 @@ function initProfile(){
     document.getElementById('teamCodeVal').textContent=state.user.teamCode;
   }
   const p=DIMENSION_DEFS[state.user.type]||DIMENSION_DEFS.action;
+  const composite = getCompositeType(state.personalityScores);
   document.getElementById('personalityResult').innerHTML=`
     <div style="text-align:center;padding:12px 0">
+      ${composite&&composite.keys&&composite.keys.length>1?`
+      <div style="font-size:28px;margin-bottom:8px">${DIMENSION_DEFS[composite.keys[0]].icon}${DIMENSION_DEFS[composite.keys[1]].icon}</div>
+      <div style="font-size:18px;font-weight:700;color:${p.color}">${composite.label}</div>
+      <p class="text-sm text-muted" style="margin:8px 0 4px;line-height:1.7">${composite.desc}</p>
+      <p class="text-xs text-muted">主な特性：${DIMENSION_DEFS[composite.keys[0]].label}・${DIMENSION_DEFS[composite.keys[1]].label}</p>
+      `:`
       <div style="font-size:32px;margin-bottom:8px">${p.icon}</div>
       <div style="font-size:16px;font-weight:700;color:${p.color}">${p.label}</div>
       <p class="text-sm text-muted" style="margin:8px 0 12px;line-height:1.7">${p.desc}</p>
+      `}
     </div>
     <div class="ai-box mt-12"><div class="ai-box-header"><i class="ti ti-sparkles"></i>AIアドバイス</div><p style="font-size:13px;line-height:1.7">${p.advice}</p></div>
     ${renderPersonalityBreakdown()}`;
