@@ -3234,6 +3234,7 @@ function renderAdminDashboard(){
   const totalSales = stats.reduce((s,x)=>s+x.sales,0);
   const avgKpi = stats.length>0 ? Math.round(stats.reduce((s,x)=>s+x.kpi,0)/stats.length) : 0;
   const alertCount = stats.filter(x=>x.daysSinceReport==null || x.daysSinceReport>=3).length;
+  const totalReports = stats.reduce((s,x)=>s+x.reportCount,0);
   const sorted = [...stats].sort((a,b)=>b.sales-a.sales);
   const top = sorted[0], bottom = sorted[sorted.length-1];
 
@@ -3287,6 +3288,16 @@ function renderAdminDashboard(){
             <div style="width:50px;text-align:right;font-size:13px;font-weight:600">${r.burnout.mindScore}点</div>
           </div>`).join('');
         })()}
+      </div>
+    </div>
+    <div class="card mt-16">
+      <h3 class="mb-12">🤖 AI要約</h3>
+      <div class="ai-box"><div class="ai-box-header"><i class="ti ti-sparkles"></i>組織サマリー</div>
+        <p style="font-size:13px;line-height:1.9">
+          今月の組織全体売上は<strong>¥${totalSales}万</strong>、平均KPI達成率は<strong>${avgKpi}%</strong>です。
+          日報提出件数は計${totalReports}件でした。
+          ${alertCount>0?`現在<strong style="color:var(--red)">${alertCount}名</strong>のメンバーが3日以上日報を提出していません。早めの声がけを推奨します。`:'全メンバーが直近で日報を提出しており、活動状況は良好です。'}
+        </p>
       </div>
     </div>`;
   renderAdminOrgTrendChart(profiles);
@@ -3548,10 +3559,6 @@ function renderAdminReports(){
   const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
   const alertMembers = stats.filter(x=>x.daysSinceReport==null||x.daysSinceReport>=3);
 
-  const totalSales = stats.reduce((s,x)=>s+x.sales,0);
-  const totalReports = stats.reduce((s,x)=>s+x.reportCount,0);
-  const avgKpi = stats.length>0?Math.round(stats.reduce((s,x)=>s+x.kpi,0)/stats.length):0;
-
   document.getElementById('adminContent').innerHTML = `
     <div class="card mb-16">
       <h3 class="mb-12">📝 全体日報</h3>
@@ -3564,16 +3571,6 @@ function renderAdminReports(){
       ${alertMembers.length===0?'<p class="text-muted text-sm">該当者なし</p>':`<table><thead><tr><th>氏名</th><th>最終日報</th><th>未提出日数</th></tr></thead>
         <tbody>${alertMembers.map(x=>`<tr><td>${x.p.name||'(未設定)'}</td><td>${x.lastReportDate||'記録なし'}</td><td style="color:var(--red);font-weight:700">${x.daysSinceReport!=null?x.daysSinceReport+'日':'-'}</td></tr>`).join('')}</tbody>
       </table>`}
-    </div>
-    <div class="card">
-      <h3 class="mb-12">🤖 AI要約</h3>
-      <div class="ai-box"><div class="ai-box-header"><i class="ti ti-sparkles"></i>組織サマリー</div>
-        <p style="font-size:13px;line-height:1.9">
-          今月の組織全体売上は<strong>¥${totalSales}万</strong>、平均KPI達成率は<strong>${avgKpi}%</strong>です。
-          日報提出件数は計${totalReports}件でした。
-          ${alertMembers.length>0?`現在<strong style="color:var(--red)">${alertMembers.length}名</strong>のメンバーが3日以上日報を提出していません。早めの声がけを推奨します。`:'全メンバーが直近で日報を提出しており、活動状況は良好です。'}
-        </p>
-      </div>
     </div>`;
 }
 
