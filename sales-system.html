@@ -3098,13 +3098,20 @@ function renderAdminMind(){
       <div id="adminMindDetailContent"></div>
     </div>`;
 }
-let chartAdminMind;
+let chartAdminMind, chartAdminMindAnalysis;
 function showAdminMindDetail(userId){
   const p = _adminData.profiles.find(x=>x.id===userId);
   const journals = _adminData.journals.filter(j=>j.user_id===userId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const burnout = calcBurnout(journals);
   const card = document.getElementById('adminMindDetailCard');
   card.style.display='block';
+
+  const avgOf = key => {
+    const vals = journals.map(j=>j[key]).filter(v=>v!=null);
+    return vals.length>0 ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20) : 0;
+  };
+  const analysisValues = MIND_QUESTIONS.map(q=>avgOf(q.key));
+
   document.getElementById('adminMindDetailContent').innerHTML = `
     <div class="grid-3 mb-16">
       <div class="kpi-card"><div class="kpi-label">${p.name}</div><div class="kpi-val text-blue" style="font-size:14px">${p.team||''}</div></div>
@@ -3115,19 +3122,51 @@ function showAdminMindDetail(userId){
       <div class="text-sm mb-8" style="font-weight:600">${burnout.labelText}</div>
       <ul style="margin:0 0 0 18px;padding:0;font-size:12px;line-height:1.8">${burnout.reasons.map(r=>`<li>${r}</li>`).join('')}</ul>
     </div>
-    <div class="chart-wrap mb-16" style="height:200px"><canvas id="adminMindChart"></canvas></div>
+    <div class="grid-2 mb-16" style="gap:16px">
+      <div class="card" style="padding:12px">
+        <h4 class="mb-8" style="font-size:13px">マインド推移</h4>
+        <div class="chart-wrap" style="height:200px"><canvas id="adminMindChart"></canvas></div>
+      </div>
+      <div class="card" style="padding:12px">
+        <h4 class="mb-8" style="font-size:13px">マインド分析</h4>
+        <div class="chart-wrap" style="height:160px"><canvas id="adminMindAnalysisChart"></canvas></div>
+        <div class="mt-8">
+          ${MIND_QUESTIONS.map((q,i)=>{
+            const val = analysisValues[i];
+            const color = val>=80?'var(--green)':val>=60?'var(--blue)':val>=40?'var(--amber)':'var(--red)';
+            return `<div style="margin-bottom:6px"><div class="flex-between text-xs mb-2"><span>${q.label}</span><span style="font-weight:600;color:${color}">${val}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${val}%;background:${color}"></div></div></div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
     <h4 class="mb-8" style="font-size:13px">直近のジャーナル</h4>
     <table><thead><tr><th>日付</th><th>気分</th><th>メモ</th></tr></thead>
       <tbody>${[...journals].reverse().slice(0,10).map(j=>`<tr><td>${j.date}</td><td>${j.mood}/5</td><td style="font-size:12px">${j.note||''}</td></tr>`).join('')||'<tr><td colspan="3" class="text-muted text-sm">記録なし</td></tr>'}</tbody>
     </table>`;
+
   if(chartAdminMind){chartAdminMind.destroy();}
   const canvas = document.getElementById('adminMindChart');
   const labels = journals.map(j=>j.date.slice(5));
   const moodScore = journals.map(j=>j.mood*20);
+  const mindAvg = journals.map(j=>{
+    const vals=[j.resilience,j.agency,j.efficacy,j.openness,j.persistence].filter(v=>v!=null);
+    return vals.length>0?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20):null;
+  });
   chartAdminMind = new Chart(canvas.getContext('2d'), {
     type:'line',
-    data:{labels, datasets:[{label:'マインドスコア',data:moodScore,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.1)',tension:.4,fill:true,pointRadius:3}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{font:{size:10}}},x:{ticks:{font:{size:10},maxRotation:45}}}}
+    data:{labels, datasets:[
+      {label:'マインドスコア',data:moodScore,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.1)',tension:.4,fill:true,pointRadius:3},
+      {label:'マインド指標平均',data:mindAvg,borderColor:'#2dd4bf',backgroundColor:'transparent',tension:.4,pointRadius:2,borderDash:[5,3]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:10}}}},scales:{y:{min:0,max:100,ticks:{font:{size:10}}},x:{ticks:{font:{size:10},maxRotation:45}}}}
+  });
+
+  if(chartAdminMindAnalysis){chartAdminMindAnalysis.destroy();}
+  const analysisCanvas = document.getElementById('adminMindAnalysisChart');
+  chartAdminMindAnalysis = new Chart(analysisCanvas.getContext('2d'), {
+    type:'radar',
+    data:{labels:MIND_QUESTIONS.map(q=>q.label), datasets:[{label:'マインド分析',data:analysisValues,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.15)',pointRadius:3,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{display:false},pointLabels:{font:{size:9}}}}}
   });
 }
 
