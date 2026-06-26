@@ -1235,10 +1235,10 @@ function initDashboard(){
   const goals = state.user.goals||{sales:500,appo:30,meeting:15,contract:5};
 
   const kpiDefs = [
-    {label:'今月売上',val:totalSales,goal:goals.sales,unit:'万',color:'#34d399',bg:'#e8fbf3',icon:'ti-currency-yen',valClass:'text-green'},
-    {label:'アポ数',val:totalAppo,goal:goals.appo,unit:'件',color:'#4f8ef7',bg:'#eaf2fe',icon:'ti-calendar-event',valClass:'text-blue'},
-    {label:'商談数',val:totalMeeting,goal:goals.meeting,unit:'件',color:'#a78bfa',bg:'#f2eefd',icon:'ti-users',valClass:'text-purple'},
-    {label:'成約数',val:totalContract,goal:goals.contract,unit:'件',color:'#fbbf24',bg:'#fef8e8',icon:'ti-trophy',valClass:'text-amber'},
+    {label:'今月売上',val:totalSales,goal:goals.sales,unit:'万',color:'#4f8ef7',bg:'#eaf2fe',icon:'ti-currency-yen',valClass:'text-blue'},
+    {label:'アポ数',val:totalAppo,goal:goals.appo,unit:'件',color:'#fbbf24',bg:'#fef8e8',icon:'ti-calendar-event',valClass:'text-amber'},
+    {label:'商談数',val:totalMeeting,goal:goals.meeting,unit:'件',color:'#34d399',bg:'#e8fbf3',icon:'ti-users',valClass:'text-green'},
+    {label:'成約数',val:totalContract,goal:goals.contract,unit:'件',color:'#a78bfa',bg:'#f2eefd',icon:'ti-trophy',valClass:'text-purple'},
   ];
   const avgAchieve = Math.round(kpiDefs.reduce((s,k)=>s+(k.goal>0?k.val/k.goal:0),0)/kpiDefs.length*100);
   document.getElementById('topAchieveBadge').innerHTML = `<i class="ti ti-trending-up"></i> 目標達成率 ${avgAchieve}%`;
