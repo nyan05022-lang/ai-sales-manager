@@ -3048,20 +3048,6 @@ function renderAdminMind(){
       </div>`).join('')}
     </div>`:''}
     <div class="card mb-16">
-      <h3 class="mb-12">マインドスコアランキング</h3>
-      ${(()=>{
-        const ranked = rows.filter(r=>r.burnout).sort((a,b)=>b.burnout.mindScore-a.burnout.mindScore);
-        if(ranked.length===0) return '<p class="text-muted text-sm">記録のあるメンバーがいません</p>';
-        const medalColor=['#fbbf24','#cbd5e1','#fb923c'];
-        return ranked.map((r,i)=>`<div class="flex gap-8" style="padding:7px 0;border-bottom:1px solid var(--border);align-items:center">
-          <div style="width:20px;height:20px;border-radius:50%;background:${i<3?medalColor[i]:'var(--bg3)'};color:${i<3?'#fff':'var(--text2)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
-          <div style="flex-shrink:0;width:120px;font-size:13px;font-weight:500">${r.p.name||'(未設定)'}</div>
-          <div style="flex:1;background:var(--bg4);border-radius:4px;height:7px"><div style="width:${r.burnout.mindScore}%;background:#a78bfa;height:7px;border-radius:4px"></div></div>
-          <div style="width:50px;text-align:right;font-size:13px;font-weight:600">${r.burnout.mindScore}点</div>
-        </div>`).join('');
-      })()}
-    </div>
-    <div class="card mb-16">
       <h3 class="mb-12">メンバー別マインド状況</h3>
       <table>
         <thead><tr><th>氏名</th><th>チーム</th><th>記録数</th><th>マインドスコア</th><th>バーンアウトリスク</th><th></th></tr></thead>
@@ -3151,6 +3137,31 @@ function renderAdminDashboard(){
         </div>
       </div>
       <div class="chart-wrap" style="height:240px"><canvas id="adminOrgTrendChart"></canvas></div>
+    </div>
+    <div class="grid-2" style="gap:16px;margin-top:16px">
+      <div class="card">
+        <h3 class="mb-12">ランキング（KPI達成率順）</h3>
+        <table><thead><tr><th>順位</th><th>氏名</th><th>チーム</th><th>売上</th><th>KPI達成率</th></tr></thead>
+          <tbody>${[...stats].sort((a,b)=>b.kpi-a.kpi).map((x,i)=>`<tr><td>${i+1}</td><td>${x.p.name||'(未設定)'}</td><td>${x.p.team||''}</td><td>¥${x.sales}万</td><td>${x.kpi}%</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3 class="mb-12">マインドスコアランキング</h3>
+        ${(()=>{
+          const mindRows = profiles.map(p=>{
+            const journals = (_adminData.journals||[]).filter(j=>j.user_id===p.id).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+            return {p, burnout: journals.length>0 ? calcBurnout(journals) : null};
+          }).filter(r=>r.burnout).sort((a,b)=>b.burnout.mindScore-a.burnout.mindScore);
+          if(mindRows.length===0) return '<p class="text-muted text-sm">記録のあるメンバーがいません</p>';
+          const medalColor=['#fbbf24','#cbd5e1','#fb923c'];
+          return mindRows.map((r,i)=>`<div class="flex gap-8" style="padding:7px 0;border-bottom:1px solid var(--border);align-items:center">
+            <div style="width:20px;height:20px;border-radius:50%;background:${i<3?medalColor[i]:'var(--bg3)'};color:${i<3?'#fff':'var(--text2)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
+            <div style="flex-shrink:0;width:110px;font-size:13px;font-weight:500">${r.p.name||'(未設定)'}</div>
+            <div style="flex:1;background:var(--bg4);border-radius:4px;height:7px"><div style="width:${r.burnout.mindScore}%;background:#a78bfa;height:7px;border-radius:4px"></div></div>
+            <div style="width:50px;text-align:right;font-size:13px;font-weight:600">${r.burnout.mindScore}点</div>
+          </div>`).join('');
+        })()}
+      </div>
     </div>`;
   renderAdminOrgTrendChart(profiles);
 }
@@ -3394,16 +3405,10 @@ function renderAdminKpi(){
       </select>
       <div id="adminKpiPersonResult"></div>
     </div>
-    <div class="card mb-16">
+    <div class="card">
       <h3 class="mb-12">チーム分析（平均売上）</h3>
       <table><thead><tr><th>チーム</th><th>平均売上</th></tr></thead>
         <tbody>${teamAvg.map(t=>`<tr><td>${t.team}</td><td>¥${t.avgSales}万</td></tr>`).join('')}</tbody>
-      </table>
-    </div>
-    <div class="card">
-      <h3 class="mb-12">ランキング（KPI達成率順）</h3>
-      <table><thead><tr><th>順位</th><th>氏名</th><th>チーム</th><th>売上</th><th>KPI達成率</th></tr></thead>
-        <tbody>${ranked.map((x,i)=>`<tr><td>${i+1}</td><td>${x.p.name||'(未設定)'}</td><td>${x.p.team||''}</td><td>¥${x.sales}万</td><td>${x.kpi}%</td></tr>`).join('')}</tbody>
       </table>
     </div>`;
 }
