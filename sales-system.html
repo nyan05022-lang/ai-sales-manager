@@ -319,7 +319,7 @@ tr:hover td{background:var(--bg3)}
       <div class="flex-between">
         <div class="flex gap-8">
           <div class="user-avatar" id="userAvatar">山</div>
-          <div><div style="font-size:12px;font-weight:600" id="userName">山田 太郎</div><div class="text-xs text-muted" id="userTeam">東京チームA</div></div>
+          <div><div style="font-size:12px;font-weight:600" id="userName">山田 太郎</div></div>
         </div>
         <i class="ti ti-logout" style="color:var(--text3);cursor:pointer;font-size:16px" onclick="doLogout()"></i>
       </div>
@@ -719,7 +719,6 @@ tr:hover td{background:var(--bg3)}
                 <div style="width:64px;height:64px;border-radius:50%;background:var(--blue2);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff" id="profileAvatar">山</div>
                 <div>
                   <div style="font-size:18px;font-weight:700" id="profileName">山田 太郎</div>
-                  <div class="text-muted text-sm" id="profileTeam">東京チームA</div>
                   <div class="flex gap-8 mt-8"><span class="badge badge-blue" id="profileType">ドライバー型</span></div>
                 </div>
               </div>
@@ -783,7 +782,6 @@ tr:hover td{background:var(--bg3)}
   <div class="modal">
     <div class="flex-between mb-16"><h3>プロフィール編集</h3><i class="ti ti-x" style="cursor:pointer;font-size:18px" onclick="document.getElementById('profileModal').classList.remove('open')"></i></div>
     <div class="form-group"><label>氏名</label><input type="text" id="editName" placeholder="山田 太郎"></div>
-    <div class="form-group"><label>チーム</label><select id="editTeam"><option>東京チームA</option><option>東京チームB</option><option>大阪チーム</option><option>名古屋チーム</option></select></div>
     <div class="form-group"><label>診断タイプ（最も得点の高い項目）</label><select id="editType"><option value="action">⚡ 行動力</option><option value="goal">🎯 目標達成力</option><option value="empathy">🤝 共感力</option><option value="communication">🗣️ コミュニケーション力</option><option value="analysis">🔍 分析力</option><option value="planning">📋 計画力</option><option value="growth">🌱 成長意欲</option><option value="adaptability">🚀 変化適応力</option></select></div>
     <div class="flex gap-8 mt-16">
       <button class="btn-primary" onclick="saveProfileEdit()">保存</button>
@@ -1224,11 +1222,9 @@ function initApp(){
   const greet = h<12?'おはようございます':h<18?'こんにちは':'こんばんは';
   document.getElementById('greetUser').textContent = greet+'、'+u.name.split(' ')[0]+'さん';
   document.getElementById('userName').textContent = u.name;
-  document.getElementById('userTeam').textContent = u.team;
   document.getElementById('userAvatar').textContent = u.name[0];
   document.getElementById('profileAvatar').textContent = u.name[0];
   document.getElementById('profileName').textContent = u.name;
-  document.getElementById('profileTeam').textContent = u.team;
   document.getElementById('profileType').textContent = u.typeLabel;
   document.getElementById('pageDate').textContent = new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
@@ -2122,8 +2118,8 @@ function switchRankTab(tab,el){
 }
 function renderRanking(){
   const data = (state._rankDataByTab && state._rankDataByTab[state.rankTab]) || state._rankData || [];
-  document.getElementById('rankingTable').innerHTML=`<table><thead><tr><th>順位</th><th>氏名</th><th>チーム</th><th>売上</th><th>アポ数</th><th>成約数</th><th>KPI</th></tr></thead><tbody>${
-    data.map(p=>`<tr style="background:${p.isMe?'#f0f8ff':''}"><td><div class="rank-num rank-${Math.min(p.rank,3)}">${p.rank}</div></td><td><span style="font-weight:${p.isMe?'700':'400'};color:${p.isMe?'var(--blue)':'inherit'}">${p.name}${p.isMe?' 👈':''}</span></td><td>${p.team}</td><td style="font-weight:600;color:var(--green)">¥${p.sales}万</td><td>${p.appo}件</td><td>${p.contract}件</td><td><span class="badge ${p.kpi>=85?'badge-green':p.kpi>=70?'badge-blue':'badge-amber'}">${p.kpi}</span></td></tr>`).join('')
+  document.getElementById('rankingTable').innerHTML=`<table><thead><tr><th>順位</th><th>氏名</th><th>売上</th><th>アポ数</th><th>成約数</th><th>KPI</th></tr></thead><tbody>${
+    data.map(p=>`<tr style="background:${p.isMe?'#f0f8ff':''}"><td><div class="rank-num rank-${Math.min(p.rank,3)}">${p.rank}</div></td><td><span style="font-weight:${p.isMe?'700':'400'};color:${p.isMe?'var(--blue)':'inherit'}">${p.name}${p.isMe?' 👈':''}</span></td><td style="font-weight:600;color:var(--green)">¥${p.sales}万</td><td>${p.appo}件</td><td>${p.contract}件</td><td><span class="badge ${p.kpi>=85?'badge-green':p.kpi>=70?'badge-blue':'badge-amber'}">${p.kpi}</span></td></tr>`).join('')
   }</tbody></table>`;
 
   const me = data.find(p=>p.isMe)||{sales:0,appo:0,contract:0,kpi:0};
@@ -3052,23 +3048,19 @@ async function saveGoalEdit(){
 // ===== PROFILE EDIT =====
 function openProfileEdit(){
   document.getElementById('editName').value = state.user.name;
-  document.getElementById('editTeam').value = state.user.team;
   document.getElementById('editType').value = state.user.type;
   document.getElementById('profileModal').classList.add('open');
 }
 async function saveProfileEdit(){
   state.user.name = document.getElementById('editName').value || state.user.name;
-  state.user.team = document.getElementById('editTeam').value;
   state.user.type = document.getElementById('editType').value;
   state.user.typeLabel = DIMENSION_DEFS[state.user.type].label;
   await saveState();
   document.getElementById('profileModal').classList.remove('open');
   document.getElementById('profileName').textContent = state.user.name;
-  document.getElementById('profileTeam').textContent = state.user.team;
   document.getElementById('profileType').textContent = state.user.typeLabel;
   document.getElementById('profileAvatar').textContent = state.user.name[0];
   document.getElementById('userName').textContent = state.user.name;
-  document.getElementById('userTeam').textContent = state.user.team;
   document.getElementById('userAvatar').textContent = state.user.name[0];
   initProfile();
   showNotif('プロフィールを保存しました');
@@ -3144,11 +3136,10 @@ function renderAdminMind(){
     <div class="card mb-16">
       <h3 class="mb-12">メンバー別マインド状況</h3>
       <table>
-        <thead><tr><th>氏名</th><th>チーム</th><th>記録数</th><th>マインドスコア</th><th></th></tr></thead>
+        <thead><tr><th>氏名</th><th>記録数</th><th>マインドスコア</th><th></th></tr></thead>
         <tbody>
           ${rows.map(r=>`<tr>
             <td>${r.p.name||'(未設定)'}</td>
-            <td>${r.p.team||''}</td>
             <td>${r.journals.length}</td>
             <td>${r.burnout?r.burnout.mindScore+'点':'-'}</td>
             <td>${r.journals.length>0?`<button class="btn-ghost btn-sm" onclick="showAdminMindDetail('${r.p.id}')">詳細</button>`:''}</td>
@@ -3177,7 +3168,7 @@ function showAdminMindDetail(userId){
 
   document.getElementById('adminMindDetailContent').innerHTML = `
     <div class="grid-3 mb-16">
-      <div class="kpi-card"><div class="kpi-label">${p.name}</div><div class="kpi-val text-blue" style="font-size:14px">${p.team||''}</div></div>
+      <div class="kpi-card"><div class="kpi-label">氏名</div><div class="kpi-val text-blue" style="font-size:14px">${p.name}</div></div>
       <div class="kpi-card"><div class="kpi-label">マインドスコア</div><div class="kpi-val" style="color:var(--purple)">${burnout.mindScore}</div></div>
       <div class="kpi-card"><div class="kpi-label">記録回数</div><div class="kpi-val text-green">${journals.length}</div></div>
     </div>
@@ -3252,11 +3243,11 @@ function renderAdminDashboard(){
     <div class="grid-2" style="gap:16px">
       <div class="card">
         <h3 class="mb-12">トップパフォーマー</h3>
-        ${top?`<div class="flex-between" style="padding:8px 0"><div><div style="font-weight:600">${top.p.name||'(未設定)'}</div><div class="text-xs text-muted">${top.p.team||''}</div></div><div style="font-weight:700;color:var(--green)">¥${top.sales}万 / KPI ${top.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
+        ${top?`<div class="flex-between" style="padding:8px 0"><div style="font-weight:600">${top.p.name||'(未設定)'}</div><div style="font-weight:700;color:var(--green)">¥${top.sales}万 / KPI ${top.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
       </div>
       <div class="card">
         <h3 class="mb-12">要フォローメンバー</h3>
-        ${bottom?`<div class="flex-between" style="padding:8px 0"><div><div style="font-weight:600">${bottom.p.name||'(未設定)'}</div><div class="text-xs text-muted">${bottom.p.team||''}</div></div><div style="font-weight:700;color:var(--red)">¥${bottom.sales}万 / KPI ${bottom.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
+        ${bottom?`<div class="flex-between" style="padding:8px 0"><div style="font-weight:600">${bottom.p.name||'(未設定)'}</div><div style="font-weight:700;color:var(--red)">¥${bottom.sales}万 / KPI ${bottom.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
       </div>
     </div>
     <div class="card mt-16">
@@ -3272,8 +3263,8 @@ function renderAdminDashboard(){
     <div class="grid-2" style="gap:16px;margin-top:16px">
       <div class="card">
         <h3 class="mb-12">ランキング（KPI達成率順）</h3>
-        <table><thead><tr><th>順位</th><th>氏名</th><th>チーム</th><th>売上</th><th>KPI達成率</th></tr></thead>
-          <tbody>${[...stats].sort((a,b)=>b.kpi-a.kpi).map((x,i)=>`<tr><td>${i+1}</td><td>${x.p.name||'(未設定)'}</td><td>${x.p.team||''}</td><td>¥${x.sales}万</td><td>${x.kpi}%</td></tr>`).join('')}</tbody>
+        <table><thead><tr><th>順位</th><th>氏名</th><th>売上</th><th>KPI達成率</th></tr></thead>
+          <tbody>${[...stats].sort((a,b)=>b.kpi-a.kpi).map((x,i)=>`<tr><td>${i+1}</td><td>${x.p.name||'(未設定)'}</td><td>¥${x.sales}万</td><td>${x.kpi}%</td></tr>`).join('')}</tbody>
         </table>
       </div>
       <div class="card">
@@ -3371,11 +3362,10 @@ function renderAdminMembers(){
     <div class="card mb-16">
       <h3 class="mb-12">営業マン一覧</h3>
       <table>
-        <thead><tr><th>氏名</th><th>チーム</th><th>今月売上</th><th>KPI達成率</th><th>スキル平均</th><th>権限</th><th></th></tr></thead>
+        <thead><tr><th>氏名</th><th>今月売上</th><th>KPI達成率</th><th>スキル平均</th><th>権限</th><th></th></tr></thead>
         <tbody>
           ${stats.map(x=>`<tr>
             <td>${x.p.name||'(未設定)'}</td>
-            <td>${x.p.team||''}</td>
             <td>¥${x.sales}万</td>
             <td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td>
             <td>${x.skillAvg!=null?x.skillAvg+'点':'-'}</td>
@@ -3413,7 +3403,7 @@ function showAdminMemberDetail(userId){
   card.style.display='block';
   document.getElementById('adminMemberDetailContent').innerHTML = `
     <div class="grid-4 mb-16">
-      <div class="kpi-card"><div class="kpi-label">${p.name}</div><div class="kpi-val text-blue" style="font-size:14px">${p.team||''}</div></div>
+      <div class="kpi-card"><div class="kpi-label">氏名</div><div class="kpi-val text-blue" style="font-size:14px">${p.name}</div></div>
       <div class="kpi-card"><div class="kpi-label">今月売上</div><div class="kpi-val text-green">¥${x.sales}万</div></div>
       <div class="kpi-card"><div class="kpi-label">KPI達成率</div><div class="kpi-val" style="color:var(--purple)">${x.kpi}%</div></div>
       <div class="kpi-card"><div class="kpi-label">最終日報</div><div class="kpi-val" style="font-size:14px;color:${x.daysSinceReport>=3?'var(--red)':'var(--text)'}">${x.lastReportDate||'なし'}</div></div>
@@ -3557,12 +3547,6 @@ function renderAdminReports(){
   const totalSales = stats.reduce((s,x)=>s+x.sales,0);
   const totalReports = stats.reduce((s,x)=>s+x.reportCount,0);
   const avgKpi = stats.length>0?Math.round(stats.reduce((s,x)=>s+x.kpi,0)/stats.length):0;
-  const topTeam = (()=>{
-    const teams={};
-    stats.forEach(x=>{const t=x.p.team||'未設定';teams[t]=(teams[t]||0)+x.sales;});
-    const sorted=Object.entries(teams).sort((a,b)=>b[1]-a[1]);
-    return sorted[0]?sorted[0][0]:'-';
-  })();
 
   document.getElementById('adminContent').innerHTML = `
     <div class="card mb-16">
@@ -3573,8 +3557,8 @@ function renderAdminReports(){
     </div>
     <div class="card mb-16">
       <h3 class="mb-12">⚠️ 要注意メンバー（3日以上未提出）</h3>
-      ${alertMembers.length===0?'<p class="text-muted text-sm">該当者なし</p>':`<table><thead><tr><th>氏名</th><th>チーム</th><th>最終日報</th><th>未提出日数</th></tr></thead>
-        <tbody>${alertMembers.map(x=>`<tr><td>${x.p.name||'(未設定)'}</td><td>${x.p.team||''}</td><td>${x.lastReportDate||'記録なし'}</td><td style="color:var(--red);font-weight:700">${x.daysSinceReport!=null?x.daysSinceReport+'日':'-'}</td></tr>`).join('')}</tbody>
+      ${alertMembers.length===0?'<p class="text-muted text-sm">該当者なし</p>':`<table><thead><tr><th>氏名</th><th>最終日報</th><th>未提出日数</th></tr></thead>
+        <tbody>${alertMembers.map(x=>`<tr><td>${x.p.name||'(未設定)'}</td><td>${x.lastReportDate||'記録なし'}</td><td style="color:var(--red);font-weight:700">${x.daysSinceReport!=null?x.daysSinceReport+'日':'-'}</td></tr>`).join('')}</tbody>
       </table>`}
     </div>
     <div class="card">
@@ -3582,7 +3566,7 @@ function renderAdminReports(){
       <div class="ai-box"><div class="ai-box-header"><i class="ti ti-sparkles"></i>組織サマリー</div>
         <p style="font-size:13px;line-height:1.9">
           今月の組織全体売上は<strong>¥${totalSales}万</strong>、平均KPI達成率は<strong>${avgKpi}%</strong>です。
-          日報提出件数は計${totalReports}件でした。最も売上が高いチームは<strong>${topTeam}</strong>です。
+          日報提出件数は計${totalReports}件でした。
           ${alertMembers.length>0?`現在<strong style="color:var(--red)">${alertMembers.length}名</strong>のメンバーが3日以上日報を提出していません。早めの声がけを推奨します。`:'全メンバーが直近で日報を提出しており、活動状況は良好です。'}
         </p>
       </div>
