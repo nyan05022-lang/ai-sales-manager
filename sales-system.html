@@ -310,7 +310,6 @@ tr:hover td{background:var(--bg3)}
       <div class="nav-section" id="navSectionAdmin" style="display:none">管理者</div>
       <div class="nav-item" id="navAdmin" style="display:none" onclick="goToAdminTab('dashboard',this)"><span class="nav-icon-wrap"><i class="ti ti-shield-lock" style="color:#ef4444"></i></span><span>ダッシュボード</span></div>
       <div class="nav-item" id="navAdminMembers" style="display:none" onclick="goToAdminTab('members',this)"><span class="nav-icon-wrap"><i class="ti ti-users" style="color:#4f8ef7"></i></span><span>メンバー管理</span></div>
-      <div class="nav-item" id="navAdminKpi" style="display:none" onclick="goToAdminTab('kpi',this)"><span class="nav-icon-wrap"><i class="ti ti-chart-line" style="color:#34d399"></i></span><span>KPI分析</span></div>
       <div class="nav-item" id="navAdminReports" style="display:none" onclick="goToAdminTab('reports',this)"><span class="nav-icon-wrap"><i class="ti ti-file-text" style="color:#fbbf24"></i></span><span>日報管理</span></div>
       <div class="nav-item" id="navAdminMind" style="display:none" onclick="goToAdminTab('mind',this)"><span class="nav-icon-wrap"><i class="ti ti-brain" style="color:#a78bfa"></i></span><span>マインド管理</span></div>
       <div class="nav-section">設定・その他</div>
@@ -896,7 +895,7 @@ async function doAdminLogin(){
   document.getElementById('app').style.display='flex';
   initApp();
   setAdminMode(true);
-  ['navAdmin','navAdminMembers','navAdminKpi','navAdminReports','navAdminMind'].forEach(id=>{
+  ['navAdmin','navAdminMembers','navAdminReports','navAdminMind'].forEach(id=>{
     document.getElementById(id).style.display = 'flex';
   });
   document.getElementById('navSectionAdmin').style.display = 'block';
@@ -1194,7 +1193,7 @@ async function loadUserData(userId){
     state.personalityScores = profile.personality_scores||null;
     state.needsDiagnosis = !profile.personality_scores || !('action' in profile.personality_scores);
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
-    ['navAdmin','navAdminMembers','navAdminKpi','navAdminReports','navAdminMind'].forEach(id=>{
+    ['navAdmin','navAdminMembers','navAdminReports','navAdminMind'].forEach(id=>{
       document.getElementById(id).style.display = 'none';
     });
     document.getElementById('navSectionAdmin').style.display = 'none';
@@ -3141,7 +3140,6 @@ function adminMemberStats(p){
 function renderAdminTab(){
   if(adminTab==='dashboard') renderAdminDashboard();
   else if(adminTab==='members') renderAdminMembers();
-  else if(adminTab==='kpi') renderAdminKpi();
   else if(adminTab==='reports') renderAdminReports();
   else if(adminTab==='mind') renderAdminMind();
 }
@@ -3444,6 +3442,11 @@ function showAdminMemberDetail(userId){
       <div class="kpi-card"><div class="kpi-label">KPI達成率</div><div class="kpi-val" style="color:var(--purple)">${x.kpi}%</div></div>
       <div class="kpi-card"><div class="kpi-label">最終日報</div><div class="kpi-val" style="font-size:14px;color:${x.daysSinceReport>=3?'var(--red)':'var(--text)'}">${x.lastReportDate||'なし'}</div></div>
     </div>
+    <div class="grid-4 mb-16">
+      <div class="kpi-card"><div class="kpi-label">アポ数</div><div class="kpi-val text-blue">${x.appo}件</div></div>
+      <div class="kpi-card"><div class="kpi-label">成約数</div><div class="kpi-val text-amber">${x.contract}件</div></div>
+      <div class="kpi-card"><div class="kpi-label">スキル平均</div><div class="kpi-val" style="color:var(--purple)">${x.skillAvg!=null?x.skillAvg+'点':'-'}</div></div>
+    </div>
     <h4 class="mb-8" style="font-size:13px">プロフィール</h4>
     <div class="card mb-16" style="background:var(--bg3)">
       ${(()=>{ const ptype = DIMENSION_DEFS[p.type]||DIMENSION_DEFS.action; return `
@@ -3461,6 +3464,11 @@ function showAdminMemberDetail(userId){
         <div><span class="text-muted">成約目標</span><br><strong>${p.goals?.contract||5}件</strong></div>
       </div>
     </div>
+    <h4 class="mb-8" style="font-size:13px">KPI分析（過去6ヶ月）</h4>
+    <div class="grid-2 mb-16" style="gap:16px">
+      <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">売上推移</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberSalesChart"></canvas></div></div>
+      <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">KPI達成率推移</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberKpiChart"></canvas></div></div>
+    </div>
     <h4 class="mb-8" style="font-size:13px">直近の日報</h4>
     <table class="mb-16"><thead><tr><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th></tr></thead>
       <tbody>${myReports.map(r=>`<tr><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td></tr>`).join('')||'<tr><td colspan="6" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
@@ -3477,6 +3485,7 @@ function showAdminMemberDetail(userId){
       <h4 class="mb-8" style="font-size:13px">送信済みフィードバック</h4>
       <div id="adminFbHistory">読込中...</div>
     </div>`;
+  renderAdminMemberCharts(userId, p);
   loadAdminFbHistory(userId);
 }
 let chartAdminMemberSales, chartAdminMemberKpi;
@@ -3542,37 +3551,6 @@ async function toggleAdminPermission(userId,newVal){
   renderAdminTab();
 }
 
-function renderAdminKpi(){
-  const profiles = _adminData.profiles;
-  const stats = profiles.map(p=>({p,...adminMemberStats(p)}));
-
-  document.getElementById('adminContent').innerHTML = `
-    <div class="card">
-      <h3 class="mb-12">個人別分析</h3>
-      <select id="adminKpiSelect" onchange="renderAdminKpiPerson(this.value)" style="margin-bottom:12px">
-        <option value="">メンバーを選択...</option>
-        ${profiles.map(p=>`<option value="${p.id}">${p.name||'(未設定)'}</option>`).join('')}
-      </select>
-      <div id="adminKpiPersonResult"></div>
-    </div>`;
-}
-function renderAdminKpiPerson(userId){
-  const el = document.getElementById('adminKpiPersonResult');
-  if(!userId){el.innerHTML='';return;}
-  const p = _adminData.profiles.find(x=>x.id===userId);
-  const x = adminMemberStats(p);
-  el.innerHTML = `<div class="grid-4 mb-16">
-    <div class="kpi-card"><div class="kpi-label">今月売上</div><div class="kpi-val text-green">¥${x.sales}万</div></div>
-    <div class="kpi-card"><div class="kpi-label">アポ数</div><div class="kpi-val text-blue">${x.appo}件</div></div>
-    <div class="kpi-card"><div class="kpi-label">成約数</div><div class="kpi-val text-amber">${x.contract}件</div></div>
-    <div class="kpi-card"><div class="kpi-label">スキル平均</div><div class="kpi-val" style="color:var(--purple)">${x.skillAvg!=null?x.skillAvg+'点':'-'}</div></div>
-  </div>
-  <div class="grid-2" style="gap:16px">
-    <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">売上推移（過去6ヶ月）</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberSalesChart"></canvas></div></div>
-    <div class="card" style="padding:12px"><h4 class="mb-8" style="font-size:13px">KPI達成率推移（過去6ヶ月）</h4><div class="chart-wrap" style="height:180px"><canvas id="adminMemberKpiChart"></canvas></div></div>
-  </div>`;
-  renderAdminMemberCharts(userId, p);
-}
 
 function renderAdminReports(){
   const reports = [..._adminData.reports].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,50);
