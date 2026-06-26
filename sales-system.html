@@ -1144,7 +1144,7 @@ async function loadUserData(userId){
     state.user.isAdmin = profile.is_admin||false;
     state.user.teamId = profile.team_id||null;
     state.personalityScores = profile.personality_scores||null;
-    state.needsDiagnosis = !profile.personality_scores || Object.keys(profile.personality_scores).length===0;
+    state.needsDiagnosis = !profile.personality_scores || !('action' in profile.personality_scores);
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
     ['navAdmin','navAdminMembers','navAdminKpi','navAdminReports','navAdminMind'].forEach(id=>{
       document.getElementById(id).style.display = 'none';
