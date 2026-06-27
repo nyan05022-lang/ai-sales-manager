@@ -3420,7 +3420,7 @@ function renderAdminMembers(){
         <thead><tr><th>氏名</th><th>今月売上</th><th>KPI達成率</th><th>スキル平均</th><th>権限</th><th></th></tr></thead>
         <tbody>
           ${stats.map(x=>`<tr>
-            <td>${x.p.name||'(未設定)'}</td>
+            <td>${x.p.name||'(未設定)'}${(x.daysSinceReport==null||x.daysSinceReport>=3)?` <i class="ti ti-alert-triangle-filled" style="color:var(--red);font-size:13px" title="3日以上日報未提出"></i>`:''}</td>
             <td>¥${x.sales}万</td>
             <td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td>
             <td>${x.skillAvg!=null?x.skillAvg+'点':'-'}</td>
