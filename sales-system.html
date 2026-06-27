@@ -82,6 +82,7 @@ h1{font-size:22px;font-weight:600}h2{font-size:18px;font-weight:600}h3{font-size
 .nav-item i{font-size:17px;width:18px;text-align:center}
 .nav-icon-wrap{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0}
 #adminReportsSubNav{display:none}
+#adminMembersSubNav{display:none}
 .nav-sub{font-size:12px}
 .nav-sub.active{background:rgba(255,255,255,.14);color:#fff;font-weight:600}
 .nav-sub.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blue);border-radius:0 2px 2px 0}
@@ -333,7 +334,13 @@ tr:hover td{background:var(--bg3)}
       <div class="nav-item staff-nav" onclick="showPage('coach',this)"><span class="nav-icon-wrap"><i class="ti ti-brain" style="color:#a78bfa"></i></span><span>AIコーチング</span></div>
       <div class="nav-section" id="navSectionAdmin" style="display:none">管理者</div>
       <div class="nav-item" id="navAdmin" style="display:none" onclick="goToAdminTab('dashboard',this)"><span class="nav-icon-wrap"><i class="ti ti-shield-lock" style="color:#ef4444"></i></span><span>ダッシュボード</span></div>
-      <div class="nav-item" id="navAdminMembers" style="display:none" onclick="goToAdminTab('members',this)"><span class="nav-icon-wrap"><i class="ti ti-users" style="color:#4f8ef7"></i></span><span>メンバー管理</span></div>
+      <div class="nav-item" id="navAdminMembers" style="display:none" onclick="goToAdminTab('members',this)"><span class="nav-icon-wrap"><i class="ti ti-users" style="color:#4f8ef7"></i></span><span style="flex:1">メンバー管理</span><i class="ti ti-chevron-down" id="navAdminMembersChevron" style="font-size:14px;transition:.2s" onclick="event.stopPropagation();toggleAdminMembersSubNav()"></i></div>
+      <div id="adminMembersSubNav">
+        <div class="nav-item nav-sub" id="navAdminMembersList" style="padding-left:40px" onclick="goToAdminMembersSubTab('list',this)"><span>一覧</span></div>
+        <div class="nav-item nav-sub" id="navAdminMembersDetail" style="padding-left:40px" onclick="goToAdminMembersSubTab('detail',this)"><span>詳細</span></div>
+        <div class="nav-item nav-sub" id="navAdminMembersEdit" style="padding-left:40px" onclick="goToAdminMembersSubTab('edit',this)"><span>編集</span></div>
+      </div>
+      <div class="nav-item" id="navAdminPermissions" style="display:none" onclick="goToAdminTab('permissions',this)"><span class="nav-icon-wrap"><i class="ti ti-lock" style="color:#fb7185"></i></span><span>権限管理</span></div>
       <div class="nav-item" id="navAdminReports" style="display:none" onclick="goToAdminTab('reports',this)"><span class="nav-icon-wrap"><i class="ti ti-file-text" style="color:#fbbf24"></i></span><span style="flex:1">日報管理</span><i class="ti ti-chevron-down" id="navAdminReportsChevron" style="font-size:14px;transition:.2s" onclick="event.stopPropagation();toggleAdminReportsSubNav()"></i></div>
       <div id="adminReportsSubNav">
         <div class="nav-item nav-sub" id="navAdminReportsList" style="padding-left:40px" onclick="goToAdminReportsSubTab('list',this)"><span>日報一覧</span></div>
@@ -927,10 +934,11 @@ async function doAdminLogin(){
   document.getElementById('app').style.display='flex';
   initApp();
   setAdminMode(true);
-  ['navAdmin','navAdminMembers','navAdminReports','navAdminMind'].forEach(id=>{
+  ['navAdmin','navAdminMembers','navAdminPermissions','navAdminReports','navAdminMind'].forEach(id=>{
     document.getElementById(id).style.display = 'flex';
   });
   setAdminReportsSubNavOpen(false);
+  setAdminMembersSubNavOpen(false);
   document.getElementById('navSectionAdmin').style.display = 'block';
   showPage('admin', document.getElementById('navAdmin'));
 }
@@ -1226,7 +1234,7 @@ async function loadUserData(userId){
     state.personalityScores = profile.personality_scores||null;
     state.needsDiagnosis = !profile.personality_scores || !('action' in profile.personality_scores);
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
-    ['navAdmin','navAdminMembers','navAdminReports','adminReportsSubNav','navAdminMind'].forEach(id=>{
+    ['navAdmin','navAdminMembers','navAdminPermissions','adminMembersSubNav','navAdminReports','adminReportsSubNav','navAdminMind'].forEach(id=>{
       document.getElementById(id).style.display = 'none';
     });
     document.getElementById('navSectionAdmin').style.display = 'none';
@@ -3156,10 +3164,22 @@ function setAdminReportsSubNavOpen(open){
 function toggleAdminReportsSubNav(){
   setAdminReportsSubNavOpen(!adminReportsSubNavOpen);
 }
+let adminMembersSubNavOpen = false;
+function setAdminMembersSubNavOpen(open){
+  adminMembersSubNavOpen = open;
+  const wrap = document.getElementById('adminMembersSubNav');
+  const chevron = document.getElementById('navAdminMembersChevron');
+  if(wrap) wrap.style.display = open ? 'block' : 'none';
+  if(chevron) chevron.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
+function toggleAdminMembersSubNav(){
+  setAdminMembersSubNavOpen(!adminMembersSubNavOpen);
+}
 function goToAdminTab(tab, el){
   adminTab = tab;
   showPage('admin', el);
   if(tab==='reports') setAdminReportsSubNavOpen(true);
+  if(tab==='members') setAdminMembersSubNavOpen(true);
   renderAdminTab();
 }
 function goToAdminReportsSubTab(subTab, el){
@@ -3167,6 +3187,13 @@ function goToAdminReportsSubTab(subTab, el){
   adminReportsTab = subTab;
   showPage('admin', el);
   setAdminReportsSubNavOpen(true);
+  renderAdminTab();
+}
+function goToAdminMembersSubTab(subTab, el){
+  adminTab = 'members';
+  adminMembersTab = subTab;
+  showPage('admin', el);
+  setAdminMembersSubNavOpen(true);
   renderAdminTab();
 }
 function adminMonthPrefix(){
@@ -3193,6 +3220,7 @@ function adminMemberStats(p){
 function renderAdminTab(){
   if(adminTab==='dashboard') renderAdminDashboard();
   else if(adminTab==='members') renderAdminMembers();
+  else if(adminTab==='permissions') renderAdminPermissions();
   else if(adminTab==='reports') renderAdminReports();
   else if(adminTab==='mind') renderAdminMind();
 }
@@ -3442,14 +3470,33 @@ function renderAdminOrgTrendChart(profiles){
   });
 }
 
-function renderAdminMembers(){
-  const profiles = _adminData.profiles;
-  const stats = profiles.map(p=>({p,...adminMemberStats(p)})).sort((a,b)=>{
+let adminMembersTab = 'list';
+let _adminSelectedMemberId = null;
+function sortedAdminMemberStats(){
+  return _adminData.profiles.map(p=>({p,...adminMemberStats(p)})).sort((a,b)=>{
     if(!!b.p.is_admin !== !!a.p.is_admin) return b.p.is_admin?1:-1;
     return (a.p.name||'')<(b.p.name||'')?1:(a.p.name||'')>(b.p.name||'')?-1:0;
   });
+}
+function renderAdminMembers(){
+  highlightAdminMembersSidebar(adminMembersTab);
+  renderAdminMembersSub();
+}
+function highlightAdminMembersSidebar(tab){
+  const map = {list:'navAdminMembersList',detail:'navAdminMembersDetail',edit:'navAdminMembersEdit'};
+  document.querySelectorAll('#adminMembersSubNav .nav-sub').forEach(n=>n.classList.remove('active'));
+  const el = document.getElementById(map[tab]);
+  if(el) el.classList.add('active');
+}
+function renderAdminMembersSub(){
+  if(adminMembersTab==='list') renderAdminMembersList();
+  else if(adminMembersTab==='detail') renderAdminMembersDetail();
+  else if(adminMembersTab==='edit') renderAdminMembersEditForm();
+}
+function renderAdminMembersList(){
+  const stats = sortedAdminMemberStats();
   document.getElementById('adminContent').innerHTML = `
-    <div class="card mb-16">
+    <div class="card">
       <h3 class="mb-12">営業マン一覧</h3>
       <table>
         <thead><tr><th>氏名</th><th>今月売上</th><th>KPI達成率</th><th>スキル平均</th><th>権限</th><th></th></tr></thead>
@@ -3460,38 +3507,36 @@ function renderAdminMembers(){
             <td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td>
             <td>${x.skillAvg!=null?x.skillAvg+'点':'-'}</td>
             <td>${x.p.is_admin?'<span class="badge badge-blue">管理者</span>':''}</td>
-            <td><button class="btn-ghost btn-sm" onclick="showAdminMemberDetail('${x.p.id}')">詳細</button></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-    <div class="card mb-16" id="adminMemberDetailCard" style="display:none">
-      <div class="flex-between mb-12"><h3>個人詳細</h3><i class="ti ti-x" style="cursor:pointer" onclick="document.getElementById('adminMemberDetailCard').style.display='none'"></i></div>
-      <div id="adminMemberDetailContent"></div>
-    </div>
-    <div class="card mb-16">
-      <h3 class="mb-12">権限管理</h3>
-      <table>
-        <thead><tr><th>氏名</th><th>現在の権限</th><th></th></tr></thead>
-        <tbody>
-          ${profiles.map(p=>`<tr>
-            <td>${p.name||'(未設定)'}</td>
-            <td>${p.is_admin?'管理者':'一般メンバー'}</td>
-            <td><button class="btn-ghost btn-sm" onclick="toggleAdminPermission('${p.id}',${!p.is_admin})">${p.is_admin?'権限を解除':'管理者にする'}</button></td>
+            <td><button class="btn-ghost btn-sm" onclick="viewAdminMemberDetail('${x.p.id}')">詳細</button> <button class="btn-ghost btn-sm" onclick="editAdminMember('${x.p.id}')">編集</button></td>
           </tr>`).join('')}
         </tbody>
       </table>
     </div>`;
 }
-function showAdminMemberDetail(userId){
+function viewAdminMemberDetail(userId){
+  _adminSelectedMemberId = userId;
+  adminMembersTab = 'detail';
+  highlightAdminMembersSidebar('detail');
+  renderAdminMembersSub();
+}
+function editAdminMember(userId){
+  _adminSelectedMemberId = userId;
+  adminMembersTab = 'edit';
+  highlightAdminMembersSidebar('edit');
+  renderAdminMembersSub();
+}
+function renderAdminMembersDetail(){
+  const el = document.getElementById('adminContent');
+  const userId = _adminSelectedMemberId;
   const p = _adminData.profiles.find(x=>x.id===userId);
-  if(!p) return;
+  if(!p){
+    el.innerHTML = `<div class="card"><p class="text-muted text-sm">「一覧」から詳細を見たいメンバーの「詳細」を選択してください</p></div>`;
+    return;
+  }
   const x = adminMemberStats(p);
   const myReports = _adminData.reports.filter(r=>r.user_id===userId).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
   const mySessions = _adminData.sessions.filter(s=>s.user_id===userId).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
-  const card = document.getElementById('adminMemberDetailCard');
-  card.style.display='block';
-  document.getElementById('adminMemberDetailContent').innerHTML = `
+  el.innerHTML = `<div class="card">
     <div class="grid-4 mb-16">
       <div class="kpi-card"><div class="kpi-label">氏名</div><div class="kpi-val text-blue" style="font-size:14px">${p.name}</div></div>
       <div class="kpi-card"><div class="kpi-label">今月売上</div><div class="kpi-val text-green">¥${x.sales}万</div></div>
@@ -3540,9 +3585,62 @@ function showAdminMemberDetail(userId){
     <div class="mt-16">
       <h4 class="mb-8" style="font-size:13px">送信済みフィードバック</h4>
       <div id="adminFbHistory">読込中...</div>
-    </div>`;
+    </div>
+  </div>`;
   renderAdminMemberCharts(userId, p);
   loadAdminFbHistory(userId);
+}
+function renderAdminMembersEditForm(){
+  const el = document.getElementById('adminContent');
+  const userId = _adminSelectedMemberId;
+  const p = _adminData.profiles.find(x=>x.id===userId);
+  if(!p){
+    el.innerHTML = `<div class="card"><p class="text-muted text-sm">「一覧」から編集したいメンバーの「編集」を選択してください</p></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="card">
+    <h3 class="mb-12">メンバー編集 - ${p.name||'(未設定)'}</h3>
+    <div class="form-group"><label>氏名</label><input type="text" id="editMemberName" value="${p.name||''}"></div>
+    <h4 class="mb-8" style="font-size:13px">目標設定</h4>
+    <div class="grid-4 mb-12" style="gap:8px">
+      <div class="form-group"><label>売上目標(万)</label><input type="number" id="editMemberGoalSales" value="${p.goals?.sales||500}"></div>
+      <div class="form-group"><label>アポ目標</label><input type="number" id="editMemberGoalAppo" value="${p.goals?.appo||30}"></div>
+      <div class="form-group"><label>商談目標</label><input type="number" id="editMemberGoalMeeting" value="${p.goals?.meeting||15}"></div>
+      <div class="form-group"><label>成約目標</label><input type="number" id="editMemberGoalContract" value="${p.goals?.contract||5}"></div>
+    </div>
+    <button class="btn-primary btn-sm" onclick="saveAdminMemberEdit('${userId}')">保存</button>
+  </div>`;
+}
+async function saveAdminMemberEdit(userId){
+  const name = document.getElementById('editMemberName').value.trim();
+  if(!name){showNotif('氏名を入力してください');return;}
+  const goals = {
+    sales: Number(document.getElementById('editMemberGoalSales').value)||500,
+    appo: Number(document.getElementById('editMemberGoalAppo').value)||30,
+    meeting: Number(document.getElementById('editMemberGoalMeeting').value)||15,
+    contract: Number(document.getElementById('editMemberGoalContract').value)||5,
+  };
+  const {error} = await sb.from('profiles').update({name,goals}).eq('id',userId);
+  if(error){showNotif('更新に失敗しました');return;}
+  showNotif('メンバー情報を更新しました');
+  await loadAdminData();
+  renderAdminMembersSub();
+}
+function renderAdminPermissions(){
+  const profiles = _adminData.profiles;
+  document.getElementById('adminContent').innerHTML = `<div class="card">
+    <h3 class="mb-12">🔐 権限管理</h3>
+    <table>
+      <thead><tr><th>氏名</th><th>現在の権限</th><th></th></tr></thead>
+      <tbody>
+        ${profiles.map(p=>`<tr>
+          <td>${p.name||'(未設定)'}</td>
+          <td>${p.is_admin?'管理者':'一般メンバー'}</td>
+          <td><button class="btn-ghost btn-sm" onclick="toggleAdminPermission('${p.id}',${!p.is_admin})">${p.is_admin?'権限を解除':'管理者にする'}</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
 }
 let chartAdminMemberSales, chartAdminMemberKpi;
 function renderAdminMemberCharts(userId, p){
