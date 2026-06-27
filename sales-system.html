@@ -81,6 +81,7 @@ h1{font-size:22px;font-weight:600}h2{font-size:18px;font-weight:600}h3{font-size
 .nav-item.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blue);border-radius:0 2px 2px 0}
 .nav-item i{font-size:17px;width:18px;text-align:center}
 .nav-icon-wrap{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0}
+#adminReportsSubNav{display:none}
 .nav-sub{font-size:12px}
 .nav-sub.active{background:rgba(255,255,255,.14);color:#fff;font-weight:600}
 .nav-sub.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blue);border-radius:0 2px 2px 0}
@@ -333,13 +334,15 @@ tr:hover td{background:var(--bg3)}
       <div class="nav-section" id="navSectionAdmin" style="display:none">管理者</div>
       <div class="nav-item" id="navAdmin" style="display:none" onclick="goToAdminTab('dashboard',this)"><span class="nav-icon-wrap"><i class="ti ti-shield-lock" style="color:#ef4444"></i></span><span>ダッシュボード</span></div>
       <div class="nav-item" id="navAdminMembers" style="display:none" onclick="goToAdminTab('members',this)"><span class="nav-icon-wrap"><i class="ti ti-users" style="color:#4f8ef7"></i></span><span>メンバー管理</span></div>
-      <div class="nav-item" id="navAdminReports" style="display:none" onclick="goToAdminTab('reports',this)"><span class="nav-icon-wrap"><i class="ti ti-file-text" style="color:#fbbf24"></i></span><span>日報管理</span></div>
-      <div class="nav-item nav-sub" id="navAdminReportsList" style="display:none;padding-left:40px" onclick="goToAdminReportsSubTab('list',this)"><span>日報一覧</span></div>
-      <div class="nav-item nav-sub" id="navAdminReportsDetail" style="display:none;padding-left:40px" onclick="goToAdminReportsSubTab('detail',this)"><span>日報詳細</span></div>
-      <div class="nav-item nav-sub" id="navAdminReportsApproval" style="display:none;padding-left:40px" onclick="goToAdminReportsSubTab('approval',this)"><span>日報承認</span></div>
-      <div class="nav-item nav-sub" id="navAdminReportsAi" style="display:none;padding-left:40px" onclick="goToAdminReportsSubTab('ai',this)"><span>AI分析</span></div>
-      <div class="nav-item nav-sub" id="navAdminReportsMonthly" style="display:none;padding-left:40px" onclick="goToAdminReportsSubTab('monthly',this)"><span>月間集計</span></div>
-      <div class="nav-item nav-sub" id="navAdminReportsRanking" style="display:none;padding-left:40px" onclick="goToAdminReportsSubTab('ranking',this)"><span>ランキング</span></div>
+      <div class="nav-item" id="navAdminReports" style="display:none" onclick="goToAdminTab('reports',this)"><span class="nav-icon-wrap"><i class="ti ti-file-text" style="color:#fbbf24"></i></span><span style="flex:1">日報管理</span><i class="ti ti-chevron-down" id="navAdminReportsChevron" style="font-size:14px;transition:.2s" onclick="event.stopPropagation();toggleAdminReportsSubNav()"></i></div>
+      <div id="adminReportsSubNav">
+        <div class="nav-item nav-sub" id="navAdminReportsList" style="padding-left:40px" onclick="goToAdminReportsSubTab('list',this)"><span>日報一覧</span></div>
+        <div class="nav-item nav-sub" id="navAdminReportsDetail" style="padding-left:40px" onclick="goToAdminReportsSubTab('detail',this)"><span>日報詳細</span></div>
+        <div class="nav-item nav-sub" id="navAdminReportsApproval" style="padding-left:40px" onclick="goToAdminReportsSubTab('approval',this)"><span>日報承認</span></div>
+        <div class="nav-item nav-sub" id="navAdminReportsAi" style="padding-left:40px" onclick="goToAdminReportsSubTab('ai',this)"><span>AI分析</span></div>
+        <div class="nav-item nav-sub" id="navAdminReportsMonthly" style="padding-left:40px" onclick="goToAdminReportsSubTab('monthly',this)"><span>月間集計</span></div>
+        <div class="nav-item nav-sub" id="navAdminReportsRanking" style="padding-left:40px" onclick="goToAdminReportsSubTab('ranking',this)"><span>ランキング</span></div>
+      </div>
       <div class="nav-item" id="navAdminMind" style="display:none" onclick="goToAdminTab('mind',this)"><span class="nav-icon-wrap"><i class="ti ti-brain" style="color:#a78bfa"></i></span><span>マインド管理</span></div>
       <div class="nav-section">設定・その他</div>
       <div class="nav-item" onclick="showPage('profile',this)"><span class="nav-icon-wrap"><i class="ti ti-user-circle" style="color:#8aafc8"></i></span><span>プロフィール</span></div>
@@ -924,9 +927,10 @@ async function doAdminLogin(){
   document.getElementById('app').style.display='flex';
   initApp();
   setAdminMode(true);
-  ['navAdmin','navAdminMembers','navAdminReports','navAdminReportsList','navAdminReportsDetail','navAdminReportsApproval','navAdminReportsAi','navAdminReportsMonthly','navAdminReportsRanking','navAdminMind'].forEach(id=>{
+  ['navAdmin','navAdminMembers','navAdminReports','navAdminMind'].forEach(id=>{
     document.getElementById(id).style.display = 'flex';
   });
+  setAdminReportsSubNavOpen(false);
   document.getElementById('navSectionAdmin').style.display = 'block';
   showPage('admin', document.getElementById('navAdmin'));
 }
@@ -1222,7 +1226,7 @@ async function loadUserData(userId){
     state.personalityScores = profile.personality_scores||null;
     state.needsDiagnosis = !profile.personality_scores || !('action' in profile.personality_scores);
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
-    ['navAdmin','navAdminMembers','navAdminReports','navAdminReportsList','navAdminReportsDetail','navAdminReportsApproval','navAdminReportsAi','navAdminReportsMonthly','navAdminReportsRanking','navAdminMind'].forEach(id=>{
+    ['navAdmin','navAdminMembers','navAdminReports','adminReportsSubNav','navAdminMind'].forEach(id=>{
       document.getElementById(id).style.display = 'none';
     });
     document.getElementById('navSectionAdmin').style.display = 'none';
@@ -3141,15 +3145,28 @@ function switchAdminTab(tab,el){
   adminTab = tab;
   renderAdminTab();
 }
+let adminReportsSubNavOpen = false;
+function setAdminReportsSubNavOpen(open){
+  adminReportsSubNavOpen = open;
+  const wrap = document.getElementById('adminReportsSubNav');
+  const chevron = document.getElementById('navAdminReportsChevron');
+  if(wrap) wrap.style.display = open ? 'block' : 'none';
+  if(chevron) chevron.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
+function toggleAdminReportsSubNav(){
+  setAdminReportsSubNavOpen(!adminReportsSubNavOpen);
+}
 function goToAdminTab(tab, el){
   adminTab = tab;
   showPage('admin', el);
+  if(tab==='reports') setAdminReportsSubNavOpen(true);
   renderAdminTab();
 }
 function goToAdminReportsSubTab(subTab, el){
   adminTab = 'reports';
   adminReportsTab = subTab;
   showPage('admin', el);
+  setAdminReportsSubNavOpen(true);
   renderAdminTab();
 }
 function adminMonthPrefix(){
