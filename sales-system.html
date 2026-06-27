@@ -3576,25 +3576,145 @@ async function toggleAdminPermission(userId,newVal){
 }
 
 
+let adminReportsTab = 'list';
+let _adminSelectedReportId = null;
 function renderAdminReports(){
+  document.getElementById('adminContent').innerHTML = `
+    <div class="tabs mb-16" id="adminReportsTabs">
+      <div class="tab" data-tab="list" onclick="switchAdminReportsTab('list',this)">日報一覧</div>
+      <div class="tab" data-tab="detail" onclick="switchAdminReportsTab('detail',this)">日報詳細</div>
+      <div class="tab" data-tab="approval" onclick="switchAdminReportsTab('approval',this)">日報承認</div>
+      <div class="tab" data-tab="ai" onclick="switchAdminReportsTab('ai',this)">AI分析</div>
+      <div class="tab" data-tab="monthly" onclick="switchAdminReportsTab('monthly',this)">月間集計</div>
+      <div class="tab" data-tab="ranking" onclick="switchAdminReportsTab('ranking',this)">ランキング</div>
+    </div>
+    <div id="adminReportsContent"></div>`;
+  highlightAdminReportsTab(adminReportsTab);
+  renderAdminReportsSub();
+}
+function highlightAdminReportsTab(tab){
+  document.querySelectorAll('#adminReportsTabs .tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+}
+function switchAdminReportsTab(tab,el){
+  adminReportsTab = tab;
+  highlightAdminReportsTab(tab);
+  renderAdminReportsSub();
+}
+function renderAdminReportsSub(){
+  if(adminReportsTab==='list') renderAdminReportsList();
+  else if(adminReportsTab==='detail') renderAdminReportsDetail();
+  else if(adminReportsTab==='approval') renderAdminReportsApproval();
+  else if(adminReportsTab==='ai') renderAdminReportsAI();
+  else if(adminReportsTab==='monthly') renderAdminReportsMonthly();
+  else if(adminReportsTab==='ranking') renderAdminReportsRanking();
+}
+function renderAdminReportsList(){
   const reports = [..._adminData.reports].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,50);
   const profileName = id => (_adminData.profiles.find(p=>p.id===id)||{}).name||'(不明)';
+  document.getElementById('adminReportsContent').innerHTML = `
+    <div class="card">
+      <h3 class="mb-12">📝 日報一覧</h3>
+      <table><thead><tr><th>氏名</th><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th><th></th></tr></thead>
+        <tbody>${reports.map(r=>`<tr><td>${profileName(r.user_id)}</td><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td><td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r.id}')">詳細</button></td></tr>`).join('')||'<tr><td colspan="8" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+function viewAdminReportDetail(reportId){
+  _adminSelectedReportId = reportId;
+  adminReportsTab = 'detail';
+  highlightAdminReportsTab('detail');
+  renderAdminReportsSub();
+}
+function renderAdminReportsDetail(){
+  const el = document.getElementById('adminReportsContent');
+  const r = _adminData.reports.find(x=>x.id===_adminSelectedReportId);
+  if(!r){
+    el.innerHTML = `<div class="card"><p class="text-muted text-sm">「日報一覧」または「日報承認」から詳細を見たい日報の「詳細」を選択してください</p></div>`;
+    return;
+  }
+  const profileName = (_adminData.profiles.find(p=>p.id===r.user_id)||{}).name||'(不明)';
+  el.innerHTML = `<div class="card">
+    <h3 class="mb-12">日報詳細</h3>
+    <div class="grid-4 mb-16">
+      <div class="kpi-card"><div class="kpi-label">氏名</div><div class="kpi-val text-blue" style="font-size:14px">${profileName}</div></div>
+      <div class="kpi-card"><div class="kpi-label">日付</div><div class="kpi-val" style="font-size:14px">${r.date}</div></div>
+      <div class="kpi-card"><div class="kpi-label">売上</div><div class="kpi-val text-green">¥${r.sales||0}万</div></div>
+      <div class="kpi-card"><div class="kpi-label">承認状態</div><div class="kpi-val" style="font-size:14px;color:${r.approved?'var(--green)':'var(--amber)'}">${r.approved?'承認済み':'未承認'}</div></div>
+    </div>
+    <div class="grid-4 mb-16" style="font-size:13px">
+      <div><span class="text-muted">架電</span><br><strong>${r.calls||0}件</strong></div>
+      <div><span class="text-muted">アポ</span><br><strong>${r.appo||0}件</strong></div>
+      <div><span class="text-muted">商談</span><br><strong>${r.meeting||0}件</strong></div>
+      <div><span class="text-muted">成約</span><br><strong>${r.contract||0}件</strong></div>
+    </div>
+    <hr class="separator">
+    <h4 class="mb-8" style="font-size:13px">よかった点</h4><p class="text-sm mb-12">${r.good||'(未入力)'}</p>
+    <h4 class="mb-8" style="font-size:13px">改善点</h4><p class="text-sm mb-12">${r.bad||'(未入力)'}</p>
+    <h4 class="mb-8" style="font-size:13px">次の予定</h4><p class="text-sm">${r.plan||'(未入力)'}</p>
+  </div>`;
+}
+function renderAdminReportsApproval(){
+  const reports = [..._adminData.reports].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,50);
+  const profileName = id => (_adminData.profiles.find(p=>p.id===id)||{}).name||'(不明)';
+  document.getElementById('adminReportsContent').innerHTML = `<div class="card">
+    <h3 class="mb-12">✅ 日報承認</h3>
+    <table><thead><tr><th>氏名</th><th>日付</th><th>売上</th><th>状態</th><th></th></tr></thead>
+      <tbody>${reports.map(r=>`<tr>
+        <td>${profileName(r.user_id)}</td><td>${r.date}</td><td>¥${r.sales||0}万</td>
+        <td><span class="badge ${r.approved?'badge-green':'badge-amber'}">${r.approved?'承認済み':'未承認'}</span></td>
+        <td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r.id}')">詳細</button> <button class="btn-ghost btn-sm" onclick="toggleReportApproval('${r.id}',${!r.approved})">${r.approved?'承認を取消':'承認する'}</button></td>
+      </tr>`).join('')||'<tr><td colspan="5" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+async function toggleReportApproval(reportId,newVal){
+  const {error} = await sb.from('daily_reports').update({approved:newVal}).eq('id',reportId);
+  if(error){showNotif('更新に失敗しました（daily_reportsにapprovedカラムが必要です）');return;}
+  showNotif(newVal?'承認しました':'承認を取消しました');
+  await loadAdminData();
+  renderAdminReportsSub();
+}
+function renderAdminReportsAI(){
   const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
   const alertMembers = stats.filter(x=>x.daysSinceReport==null||x.daysSinceReport>=3);
-
-  document.getElementById('adminContent').innerHTML = `
+  const totalSales = stats.reduce((s,x)=>s+x.sales,0);
+  const totalReports = stats.reduce((s,x)=>s+x.reportCount,0);
+  const top = [...stats].sort((a,b)=>b.sales-a.sales)[0];
+  document.getElementById('adminReportsContent').innerHTML = `
     <div class="card mb-16">
-      <h3 class="mb-12">📝 全体日報</h3>
-      <table><thead><tr><th>氏名</th><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th></tr></thead>
-        <tbody>${reports.map(r=>`<tr><td>${profileName(r.user_id)}</td><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td></tr>`).join('')||'<tr><td colspan="7" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
-      </table>
+      <h3 class="mb-12">🤖 AI分析</h3>
+      <div class="ai-box"><div class="ai-box-header"><i class="ti ti-sparkles"></i>日報トレンド分析</div>
+        <p style="font-size:13px;line-height:1.9">
+          今月の日報提出件数は計${totalReports}件、組織全体売上は¥${totalSales}万でした。
+          ${top?`最も売上を上げているのは<strong>${top.p.name||'(未設定)'}</strong>さん（¥${top.sales}万）です。`:''}
+          ${alertMembers.length>0?`<strong style="color:var(--red)">${alertMembers.length}名</strong>のメンバーが3日以上日報を提出していません。早めのフォローを推奨します。`:'全メンバーが直近で日報を提出しており、活動状況は良好です。'}
+        </p>
+      </div>
     </div>
-    <div class="card mb-16">
+    <div class="card">
       <h3 class="mb-12">⚠️ 要注意メンバー（3日以上未提出）</h3>
       ${alertMembers.length===0?'<p class="text-muted text-sm">該当者なし</p>':`<table><thead><tr><th>氏名</th><th>最終日報</th><th>未提出日数</th></tr></thead>
         <tbody>${alertMembers.map(x=>`<tr><td>${x.p.name||'(未設定)'}</td><td>${x.lastReportDate||'記録なし'}</td><td style="color:var(--red);font-weight:700">${x.daysSinceReport!=null?x.daysSinceReport+'日':'-'}</td></tr>`).join('')}</tbody>
       </table>`}
     </div>`;
+}
+function renderAdminReportsMonthly(){
+  const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
+  document.getElementById('adminReportsContent').innerHTML = `<div class="card">
+    <h3 class="mb-12">📅 月間集計（今月）</h3>
+    <table><thead><tr><th>氏名</th><th>日報件数</th><th>売上合計</th><th>アポ合計</th><th>成約合計</th><th>KPI達成率</th></tr></thead>
+      <tbody>${stats.map(x=>`<tr><td>${x.p.name||'(未設定)'}</td><td>${x.reportCount}件</td><td>¥${x.sales}万</td><td>${x.appo}件</td><td>${x.contract}件</td><td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td></tr>`).join('')||'<tr><td colspan="6" class="text-muted text-sm">データなし</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+function renderAdminReportsRanking(){
+  const stats = [..._adminData.profiles.map(p=>({p,...adminMemberStats(p)}))].sort((a,b)=>b.sales-a.sales);
+  document.getElementById('adminReportsContent').innerHTML = `<div class="card">
+    <h3 class="mb-12">🏆 売上ランキング（今月）</h3>
+    <table><thead><tr><th>順位</th><th>氏名</th><th>売上</th><th>KPI達成率</th></tr></thead>
+      <tbody>${stats.map((x,i)=>`<tr><td>${i+1}</td><td>${x.p.name||'(未設定)'}</td><td>¥${x.sales}万</td><td>${x.kpi}%</td></tr>`).join('')||'<tr><td colspan="4" class="text-muted text-sm">データなし</td></tr>'}</tbody>
+    </table>
+  </div>`;
 }
 
 // ===== NAV =====
