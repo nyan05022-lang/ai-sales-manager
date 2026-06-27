@@ -88,6 +88,18 @@ h1{font-size:22px;font-weight:600}h2{font-size:18px;font-weight:600}h3{font-size
 #pg-dashboard .kpi-label{font-size:10px}
 #pg-dashboard .tabs{font-size:11px}
 #pg-dashboard .tab{padding:4px 10px;font-size:11px}
+#pg-admin .card{padding:12px 14px}
+#pg-admin h3{font-size:13px}
+#pg-admin h4{font-size:12px}
+#pg-admin .kpi-card{padding:10px 12px}
+#pg-admin .kpi-val{font-size:17px}
+#pg-admin .kpi-label{font-size:10px}
+#pg-admin .tabs{font-size:11px}
+#pg-admin .tab{padding:4px 10px;font-size:11px}
+#pg-admin table th,#pg-admin table td{padding:7px 10px;font-size:12px}
+#pg-admin .grid-4,#pg-admin .grid-2{gap:10px!important}
+#pg-admin .mb-16{margin-bottom:10px!important}
+#pg-admin .mt-16{margin-top:10px!important}
 .mind-circle{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
 .mind-circle::before{content:'';position:absolute;inset:6px;border-radius:50%;background:#fff}
 .mind-circle-val{position:relative;z-index:1;text-align:center}
@@ -3291,7 +3303,7 @@ function renderAdminDashboard(){
           <div class="tab" onclick="switchAdminTrendMode('month',this)">月別</div>
         </div>
       </div>
-      <div class="chart-wrap" style="height:240px"><canvas id="adminOrgTrendChart"></canvas></div>
+      <div class="chart-wrap" style="height:180px"><canvas id="adminOrgTrendChart"></canvas></div>
     </div>
     <div class="grid-2" style="gap:16px;margin-top:16px">
       <div class="card">
