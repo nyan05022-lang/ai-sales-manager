@@ -3412,7 +3412,7 @@ function renderAdminOrgTrendChart(profiles){
 
 function renderAdminMembers(){
   const profiles = _adminData.profiles;
-  const stats = profiles.map(p=>({p,...adminMemberStats(p)})).sort((a,b)=>(b.p.name||'').localeCompare(a.p.name||'','ja'));
+  const stats = profiles.map(p=>({p,...adminMemberStats(p)})).sort((a,b)=>(a.p.name||'')<(b.p.name||'')?1:(a.p.name||'')>(b.p.name||'')?-1:0);
   document.getElementById('adminContent').innerHTML = `
     <div class="card mb-16">
       <h3 class="mb-12">営業マン一覧</h3>
