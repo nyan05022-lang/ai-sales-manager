@@ -94,12 +94,19 @@ h1{font-size:22px;font-weight:600}h2{font-size:18px;font-weight:600}h3{font-size
 #pg-dashboard .kpi-label{font-size:10px}
 #pg-dashboard .tabs{font-size:11px}
 #pg-dashboard .tab{padding:4px 10px;font-size:11px}
-#pg-admin .card{padding:12px 14px}
-#pg-admin h3{font-size:13px}
-#pg-admin h4{font-size:12px}
-#pg-admin .kpi-card{padding:10px 12px}
-#pg-admin .kpi-val{font-size:17px}
-#pg-admin .kpi-label{font-size:10px}
+#pg-admin{--border:#edf0f4}
+#pg-admin .card{padding:18px 20px;border-color:var(--border)}
+#pg-admin h3{font-size:13px;font-weight:700;color:var(--text)}
+#pg-admin h4{font-size:12px;font-weight:600;color:var(--text)}
+#pg-admin .kpi-card{padding:16px 16px}
+#pg-admin .kpi-val{font-size:24px;font-weight:800;letter-spacing:-.01em}
+#pg-admin .kpi-label{font-size:10.5px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.kpi-unit{font-size:12px;font-weight:500;color:var(--text2);margin-left:3px}
+.badge-tag{display:inline-flex;align-items:center;padding:3px 11px;border-radius:999px;font-size:13px;font-weight:700;line-height:1.3}
+.badge-tag.badge-sm{font-size:11px;padding:2px 8px;font-weight:600}
+.badge-tag.badge-red{background:#fee2e2;color:#dc2626}
+.badge-tag.badge-amber{background:#fef3c7;color:#b45309}
+.badge-tag.badge-green{background:#dcfce7;color:#16a34a}
 #pg-admin .tabs{font-size:11px}
 #pg-admin .tab{padding:4px 10px;font-size:11px}
 #pg-admin table th,#pg-admin table td{padding:7px 10px;font-size:12px}
@@ -163,6 +170,8 @@ tr:hover td{background:var(--bg3)}
 .ai-box{background:#f5f1fe;border:1px solid #d9c8fb;border-radius:var(--radius2);padding:16px;margin-top:16px}
 .ai-box-header{font-size:12px;font-weight:600;color:var(--purple);margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .ai-box p{font-size:13px;line-height:1.7;color:var(--text)}
+.ai-hero{margin-top:0;position:relative;padding:18px 18px 18px 20px;border-left:4px solid var(--purple);box-shadow:0 2px 10px rgba(124,58,237,.10);background:linear-gradient(135deg,#f5f1fe 0%,#eee8fd 100%)}
+.ai-hero .ai-box-header{font-size:13px}
 
 /* PERSONALITY */
 .personality-card{border:2px solid var(--border);border-radius:var(--radius2);padding:16px;cursor:pointer;transition:.2s;text-align:center;background:#fff}
@@ -299,6 +308,16 @@ tr:hover td{background:var(--bg3)}
       </div>
       <button class="btn-primary" onclick="completeRegister()">登録完了</button>
     </div>
+  </div>
+</div>
+
+<!-- EMAIL CONFIRM PENDING -->
+<div id="confirmEmailPage" style="display:none;min-height:100vh;align-items:center;justify-content:center">
+  <div class="card" style="max-width:420px;padding:32px;text-align:center">
+    <i class="ti ti-mail" style="font-size:40px;color:var(--blue)"></i>
+    <h2 style="margin:12px 0 8px">確認メールを送信しました</h2>
+    <p class="text-muted text-sm" style="margin-bottom:20px">登録したメールアドレスに確認用のリンクを送信しました。メール内のリンクをクリックすると登録が完了します。<br>（この確認は最初の1回のみで、次回以降のログインでは不要です）</p>
+    <button class="btn-primary" style="width:100%" onclick="document.getElementById('confirmEmailPage').style.display='none';document.getElementById('loginPage').style.display='flex'">ログイン画面に戻る</button>
   </div>
 </div>
 
@@ -1181,35 +1200,58 @@ async function completeRegister(){
   const {data, error} = await sb.auth.signUp({email, password: pass});
   if(error){showNotif('登録失敗: '+error.message);return;}
   if(!data.user){showNotif('登録失敗: ユーザーが作成されませんでした');return;}
-  state.userId = data.user.id;
 
+  const pending = {
+    userId: data.user.id,
+    name,
+    mode: regData.mode,
+    teamCode: regData.teamCode,
+    teamName: regData.teamName,
+    type: state.selectedType,
+    typeLabel: DIMENSION_DEFS[state.selectedType].label,
+    personalityScores: state.personalityScores||{},
+    goals: {sales:+document.getElementById('goalSales').value,appo:+document.getElementById('goalAppo').value,meeting:+document.getElementById('goalMeeting').value,contract:+document.getElementById('goalContract').value}
+  };
+
+  if(!data.session){
+    localStorage.setItem('pendingRegistration', JSON.stringify(pending));
+    document.getElementById('registerPage').style.display='none';
+    document.getElementById('confirmEmailPage').style.display='flex';
+    return;
+  }
+
+  await finishPendingRegistration(pending);
+}
+
+async function finishPendingRegistration(pending){
+  state.userId = pending.userId;
   let teamId, teamName;
-  if(regData.mode==='join'){
-    const {data:team, error:teamErr} = await sb.from('teams').select('*').eq('code',regData.teamCode).single();
-    console.log('team join lookup:', regData.teamCode, team, teamErr);
+  if(pending.mode==='join'){
+    const {data:team, error:teamErr} = await sb.from('teams').select('*').eq('code',pending.teamCode).single();
     if(teamErr || !team){showNotif('⚠️ チームコードが見つかりません: '+(teamErr?teamErr.message:'該当チームなし'));return;}
     teamId = team.id;
     teamName = team.name;
   } else {
     const newCode = genTeamCode();
-    const {data:team, error:teamErr} = await sb.from('teams').insert({name:regData.teamName, code:newCode, created_by:state.userId}).select().single();
+    const {data:team, error:teamErr} = await sb.from('teams').insert({name:pending.teamName, code:newCode, created_by:state.userId}).select().single();
     if(teamErr){showNotif('チーム作成失敗: '+teamErr.message);return;}
     teamId = team.id;
     teamName = team.name;
     showNotif(`チームを作成しました！招待コード: ${newCode}（メンバーに共有してください）`);
   }
 
-  state.user.name = name;
+  state.user.name = pending.name;
   state.user.team = teamName;
-  state.user.type = state.selectedType;
-  state.user.typeLabel = DIMENSION_DEFS[state.selectedType].label;
-  state.user.goals = {sales:+document.getElementById('goalSales').value,appo:+document.getElementById('goalAppo').value,meeting:+document.getElementById('goalMeeting').value,contract:+document.getElementById('goalContract').value};
-  const isCreator = regData.mode==='create';
+  state.user.type = pending.type;
+  state.user.typeLabel = pending.typeLabel;
+  state.user.goals = pending.goals;
+  const isCreator = pending.mode==='create';
   state.user.isAdmin = isCreator;
-  await sb.from('profiles').upsert({id:state.userId, name, team:teamName, team_id:teamId, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders, is_admin:isCreator, personality_scores:state.personalityScores||{}});
+  await sb.from('profiles').upsert({id:state.userId, name:pending.name, team:teamName, team_id:teamId, type:state.user.type, type_label:state.user.typeLabel, goals:state.user.goals, sliders:state.sliders, is_admin:isCreator, personality_scores:pending.personalityScores});
   state.crm = defaultCRM();
   state.tasks = defaultTasks();
   document.getElementById('registerPage').style.display='none';
+  document.getElementById('confirmEmailPage').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
 }
@@ -3587,20 +3629,28 @@ function renderAdminDashboard(){
   const top = sorted[0], bottom = sorted[sorted.length-1];
 
   document.getElementById('adminContent').innerHTML = `
+    <div class="ai-box ai-hero mb-16">
+      <div class="ai-box-header"><i class="ti ti-sparkles"></i>AIからの提案 — 組織サマリー</div>
+      <p style="font-size:13.5px;line-height:1.9;margin:0">
+        今月の組織全体売上は<strong>¥${totalSales}万</strong>、平均KPI達成率は<strong>${avgKpi}%</strong>です。
+        日報提出件数は計${totalReports}件でした。
+        ${alertCount>0?`現在<strong style="color:var(--red)">${alertCount}名</strong>のメンバーが3日以上日報を提出していません。早めの声がけを推奨します。`:'全メンバーが直近で日報を提出しており、活動状況は良好です。'}
+      </p>
+    </div>
     <div class="grid-4 mb-16">
-      <div class="kpi-card"><div class="kpi-label">総メンバー数</div><div class="kpi-val text-blue">${profiles.length}</div></div>
-      <div class="kpi-card"><div class="kpi-label">今月の組織売上</div><div class="kpi-val text-green">¥${totalSales}万</div></div>
-      <div class="kpi-card"><div class="kpi-label">平均KPI達成率</div><div class="kpi-val" style="color:var(--purple)">${avgKpi}%</div></div>
-      <div class="kpi-card"><div class="kpi-label">要注意メンバー</div><div class="kpi-val text-red">${alertCount}</div></div>
+      <div class="kpi-card"><div class="kpi-label">総メンバー数</div><div class="kpi-val text-blue">${profiles.length}<span class="kpi-unit">名</span></div></div>
+      <div class="kpi-card"><div class="kpi-label">今月の組織売上</div><div class="kpi-val text-green">${totalSales.toLocaleString()}<span class="kpi-unit">万円</span></div></div>
+      <div class="kpi-card"><div class="kpi-label">平均KPI達成率</div><div class="kpi-val" style="color:var(--purple)">${avgKpi}<span class="kpi-unit">%</span></div></div>
+      <div class="kpi-card"><div class="kpi-label">要注意メンバー</div><div class="kpi-val">${alertCount>0?`<span class="badge-tag badge-red">${alertCount}名</span>`:`<span class="kpi-unit" style="font-size:15px;font-weight:700;color:var(--text2)">0名</span>`}</div></div>
     </div>
     <div class="grid-2" style="gap:16px">
       <div class="card">
         <h3 class="mb-12">トップパフォーマー</h3>
-        ${top?`<div class="flex-between" style="padding:8px 0"><div style="font-weight:600">${top.p.name||'(未設定)'}</div><div style="font-weight:700;color:var(--green)">¥${top.sales}万 / KPI ${top.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
+        ${top?`<div class="flex-between" style="padding:8px 0"><div style="font-weight:600">${top.p.name||'(未設定)'} <span class="badge-tag badge-green badge-sm" style="margin-left:6px">トップ</span></div><div style="font-weight:700;color:var(--green)">¥${top.sales}万 / KPI ${top.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
       </div>
       <div class="card">
         <h3 class="mb-12">要フォローメンバー</h3>
-        ${bottom?`<div class="flex-between" style="padding:8px 0"><div style="font-weight:600">${bottom.p.name||'(未設定)'}</div><div style="font-weight:700;color:var(--red)">¥${bottom.sales}万 / KPI ${bottom.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
+        ${bottom?`<div class="flex-between" style="padding:8px 0"><div style="font-weight:600">${bottom.p.name||'(未設定)'} <span class="badge-tag badge-red badge-sm" style="margin-left:6px">要フォロー</span></div><div style="font-weight:700;color:var(--red)">¥${bottom.sales}万 / KPI ${bottom.kpi}%</div></div>`:'<p class="text-muted text-sm">データなし</p>'}
       </div>
     </div>
     <div class="card mt-16">
@@ -3637,16 +3687,6 @@ function renderAdminDashboard(){
           </div>`).join('');
         })()}
       </div>
-    </div>
-    <div class="card mt-16">
-      <h3 class="mb-12">🤖 AI要約</h3>
-      <div class="ai-box"><div class="ai-box-header"><i class="ti ti-sparkles"></i>組織サマリー</div>
-        <p style="font-size:13px;line-height:1.9">
-          今月の組織全体売上は<strong>¥${totalSales}万</strong>、平均KPI達成率は<strong>${avgKpi}%</strong>です。
-          日報提出件数は計${totalReports}件でした。
-          ${alertCount>0?`現在<strong style="color:var(--red)">${alertCount}名</strong>のメンバーが3日以上日報を提出していません。早めの声がけを推奨します。`:'全メンバーが直近で日報を提出しており、活動状況は良好です。'}
-        </p>
-      </div>
     </div>`;
   renderAdminOrgTrendChart(profiles);
 }
@@ -3666,7 +3706,8 @@ function renderAdminOrgTrendChart(profiles){
 
   if(adminTrendMode==='day'){
     const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-    for(let d=1; d<=daysInMonth; d++){
+    const todayDate = now.getDate();
+    for(let d=1; d<=todayDate; d++){
       const ds = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       labels.push(`${now.getMonth()+1}/${d}`);
       let dayTotalSales = 0, kpiSum = 0;
@@ -4313,6 +4354,17 @@ window.onload=async()=>{
   document.getElementById('reportDate').value=new Date().toISOString().split('T')[0];
   const {data:{session}} = await sb.auth.getSession();
   if(session){
+    const pendingRaw = localStorage.getItem('pendingRegistration');
+    if(pendingRaw){
+      try{
+        const pending = JSON.parse(pendingRaw);
+        if(pending.userId === session.user.id){
+          localStorage.removeItem('pendingRegistration');
+          await finishPendingRegistration(pending);
+          return;
+        }
+      }catch(e){}
+    }
     await loadUserData(session.user.id);
     enterAppOrRediag();
   }
