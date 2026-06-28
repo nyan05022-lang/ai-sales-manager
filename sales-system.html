@@ -4045,8 +4045,8 @@ function renderAdminMonthlyOrgTrendChart(){
   if(chartAdminMonthlyOrgTrend){chartAdminMonthlyOrgTrend.destroy();}
   chartAdminMonthlyOrgTrend = new Chart(canvas.getContext('2d'), {
     data:{labels, datasets:[
-      {type:'bar',label:'売上(万)',data:salesData,backgroundColor:'#60a5fa',yAxisID:'y'},
-      {type:'line',label:'平均KPI達成率(%)',data:kpiData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',pointRadius:3}
+      {type:'line',label:'平均KPI達成率(%)',data:kpiData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',pointRadius:3,order:1},
+      {type:'bar',label:'売上(万)',data:salesData,backgroundColor:'#60a5fa',yAxisID:'y',order:2}
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:10}}}},
       scales:{
