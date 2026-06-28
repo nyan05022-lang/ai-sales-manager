@@ -3185,9 +3185,20 @@ function goToAdminReportsSubTab(subTab, el){
   setAdminReportsSubNavOpen(true);
   renderAdminTab();
 }
-function adminMonthPrefix(){
+function adminMonthPrefix(offset){
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const d = new Date(now.getFullYear(), now.getMonth()-(offset||0), 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function adminMemberStatsForMonth(p, prefix){
+  const myReports = _adminData.reports.filter(r=>r.user_id===p.id);
+  const monthReports = myReports.filter(r=>r.date&&r.date.startsWith(prefix));
+  const sales = monthReports.reduce((s,r)=>s+(r.sales||0),0);
+  const appo = monthReports.reduce((s,r)=>s+(r.appo||0),0);
+  const contract = monthReports.reduce((s,r)=>s+(r.contract||0),0);
+  const goal = p.goals?.sales||500;
+  const kpi = goal>0?Math.round(sales/goal*100):0;
+  return {sales,appo,contract,kpi,reportCount:monthReports.length};
 }
 function adminMemberStats(p){
   const prefix = adminMonthPrefix();
@@ -3787,15 +3798,67 @@ function renderAdminReportsSub(){
   else if(adminReportsTab==='ranking') renderAdminReportsRanking();
 }
 function renderAdminReportsList(){
-  const reports = [..._adminData.reports].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,50);
   const profileName = id => (_adminData.profiles.find(p=>p.id===id)||{}).name||'(不明)';
+  const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
+  const alertIds = new Set(stats.filter(x=>x.daysSinceReport==null||x.daysSinceReport>=3).map(x=>x.p.id));
   document.getElementById('adminContent').innerHTML = `
     <div class="card">
-      <h3 class="mb-12">📝 日報一覧</h3>
+      <div class="flex-between mb-12" style="flex-wrap:wrap;gap:8px">
+        <h3>📝 日報一覧</h3>
+        <button class="btn-ghost btn-sm" onclick="exportAdminReportsCSV()"><i class="ti ti-download"></i> CSVエクスポート</button>
+      </div>
+      <div class="flex gap-8 mb-12" style="flex-wrap:wrap">
+        <input type="text" id="reportFilterName" placeholder="氏名で検索" style="width:160px" oninput="filterAdminReportsList()">
+        <input type="date" id="reportFilterDateFrom" style="width:150px" onchange="filterAdminReportsList()">
+        <input type="date" id="reportFilterDateTo" style="width:150px" onchange="filterAdminReportsList()">
+        <button class="btn-ghost btn-sm" onclick="document.getElementById('reportFilterName').value='';document.getElementById('reportFilterDateFrom').value='';document.getElementById('reportFilterDateTo').value='';filterAdminReportsList()">クリア</button>
+      </div>
+      <p class="text-xs text-muted mb-8">🔴の行は3日以上日報が未提出のメンバーです</p>
       <table><thead><tr><th>氏名</th><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th><th></th></tr></thead>
-        <tbody>${reports.map(r=>`<tr><td>${profileName(r.user_id)}</td><td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td><td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r.id}')">詳細</button></td></tr>`).join('')||'<tr><td colspan="8" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
+        <tbody id="reportListBody"></tbody>
       </table>
     </div>`;
+  filterAdminReportsList();
+}
+function filterAdminReportsList(){
+  const profileName = id => (_adminData.profiles.find(p=>p.id===id)||{}).name||'(不明)';
+  const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
+  const alertIds = new Set(stats.filter(x=>x.daysSinceReport==null||x.daysSinceReport>=3).map(x=>x.p.id));
+  const nameFilter = (document.getElementById('reportFilterName')?.value||'').trim();
+  const dateFrom = document.getElementById('reportFilterDateFrom')?.value||'';
+  const dateTo = document.getElementById('reportFilterDateTo')?.value||'';
+  let reports = [..._adminData.reports].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(nameFilter) reports = reports.filter(r=>profileName(r.user_id).includes(nameFilter));
+  if(dateFrom) reports = reports.filter(r=>r.date && r.date>=dateFrom);
+  if(dateTo) reports = reports.filter(r=>r.date && r.date<=dateTo);
+  _adminFilteredReports = reports;
+  const body = document.getElementById('reportListBody');
+  if(!body) return;
+  body.innerHTML = reports.map(r=>`<tr style="${alertIds.has(r.user_id)?'background:#fde8e8':''}">
+    <td>${profileName(r.user_id)}${alertIds.has(r.user_id)?' <i class="ti ti-alert-triangle-filled" style="color:var(--red);font-size:12px"></i>':''}</td>
+    <td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td>
+    <td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r.id}')">詳細</button></td>
+  </tr>`).join('') || '<tr><td colspan="8" class="text-muted text-sm">該当する日報がありません</td></tr>';
+}
+let _adminFilteredReports = [];
+function exportAdminReportsCSV(){
+  const profileName = id => (_adminData.profiles.find(p=>p.id===id)||{}).name||'(不明)';
+  const rows = _adminFilteredReports.length>0 ? _adminFilteredReports : _adminData.reports;
+  const header = ['氏名','日付','架電','アポ','商談','成約','売上(万)'];
+  const lines = [header.join(',')];
+  rows.forEach(r=>{
+    lines.push([profileName(r.user_id),r.date,r.calls||0,r.appo||0,r.meeting||0,r.contract||0,r.sales||0].join(','));
+  });
+  const csv = '﻿'+lines.join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `日報一覧_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 function viewAdminReportDetail(reportId){
   _adminSelectedReportId = reportId;
@@ -3855,9 +3918,35 @@ async function toggleReportApproval(reportId,newVal){
 function renderAdminReportsAI(){
   const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
   const alertMembers = stats.filter(x=>x.daysSinceReport==null||x.daysSinceReport>=3);
+  const avgSales = stats.length>0 ? stats.reduce((s,x)=>s+x.sales,0)/stats.length : 0;
+  const goodMembers = stats.filter(x=>x.kpi>=100 || (avgSales>0 && x.sales>=avgSales*1.2)).sort((a,b)=>b.sales-a.sales);
   const totalSales = stats.reduce((s,x)=>s+x.sales,0);
   const totalReports = stats.reduce((s,x)=>s+x.reportCount,0);
   const top = [...stats].sort((a,b)=>b.sales-a.sales)[0];
+
+  const anomalies = _adminData.profiles.map(p=>{
+    const myReports = _adminData.reports.filter(r=>r.user_id===p.id).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    if(myReports.length<3) return null;
+    const latest = myReports[myReports.length-1];
+    const prevAvg = myReports.slice(-6,-1).reduce((s,r)=>s+(r.calls||0),0) / Math.max(myReports.slice(-6,-1).length,1);
+    if(prevAvg>0 && (latest.calls||0) <= prevAvg*0.5){
+      return {p, latestCalls:latest.calls||0, prevAvg:Math.round(prevAvg), date:latest.date};
+    }
+    return null;
+  }).filter(Boolean);
+
+  const weekdayLabels = ['日','月','火','水','木','金','土'];
+  const weekdayTotals = [0,0,0,0,0,0,0];
+  const weekdayCounts = [0,0,0,0,0,0,0];
+  _adminData.reports.forEach(r=>{
+    if(!r.date) return;
+    const wd = new Date(r.date).getDay();
+    weekdayTotals[wd] += (r.calls||0);
+    weekdayCounts[wd]++;
+  });
+  const weekdayAvg = weekdayTotals.map((t,i)=>weekdayCounts[i]>0?Math.round(t/weekdayCounts[i]):0);
+  const lowestWdIdx = weekdayAvg.indexOf(Math.min(...weekdayAvg.filter((v,i)=>weekdayCounts[i]>0)));
+
   document.getElementById('adminContent').innerHTML = `
     <div class="card mb-16">
       <h3 class="mb-12">🤖 AI分析</h3>
@@ -3866,8 +3955,21 @@ function renderAdminReportsAI(){
           今月の日報提出件数は計${totalReports}件、組織全体売上は¥${totalSales}万でした。
           ${top?`最も売上を上げているのは<strong>${top.p.name||'(未設定)'}</strong>さん（¥${top.sales}万）です。`:''}
           ${alertMembers.length>0?`<strong style="color:var(--red)">${alertMembers.length}名</strong>のメンバーが3日以上日報を提出していません。早めのフォローを推奨します。`:'全メンバーが直近で日報を提出しており、活動状況は良好です。'}
+          ${weekdayCounts[lowestWdIdx]>0?`架電数は<strong>${weekdayLabels[lowestWdIdx]}曜日</strong>が他の曜日より少なめの傾向です。`:''}
         </p>
       </div>
+    </div>
+    <div class="card mb-16">
+      <h3 class="mb-12">🔥 好調メンバー</h3>
+      ${goodMembers.length===0?'<p class="text-muted text-sm">該当者なし</p>':`<table><thead><tr><th>氏名</th><th>売上</th><th>KPI達成率</th></tr></thead>
+        <tbody>${goodMembers.map(x=>`<tr><td>${x.p.name||'(未設定)'} <span class="badge badge-green">🔥好調</span></td><td>¥${x.sales}万</td><td>${x.kpi}%</td></tr>`).join('')}</tbody>
+      </table>`}
+    </div>
+    <div class="card mb-16">
+      <h3 class="mb-12">⚠️ 活動量の異常検知（架電数の急減）</h3>
+      ${anomalies.length===0?'<p class="text-muted text-sm">異常な変動は検出されませんでした</p>':`<table><thead><tr><th>氏名</th><th>直近の架電数</th><th>過去平均</th><th>日付</th></tr></thead>
+        <tbody>${anomalies.map(a=>`<tr><td>${a.p.name||'(未設定)'}</td><td style="color:var(--red);font-weight:700">${a.latestCalls}件</td><td>${a.prevAvg}件</td><td>${a.date}</td></tr>`).join('')}</tbody>
+      </table>`}
     </div>
     <div class="card">
       <h3 class="mb-12">⚠️ 要注意メンバー（3日以上未提出）</h3>
@@ -3876,14 +3978,76 @@ function renderAdminReportsAI(){
       </table>`}
     </div>`;
 }
+let adminMonthlySortKey = 'sales';
 function renderAdminReportsMonthly(){
-  const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
-  document.getElementById('adminContent').innerHTML = `<div class="card">
-    <h3 class="mb-12">📅 月間集計（今月）</h3>
-    <table><thead><tr><th>氏名</th><th>日報件数</th><th>売上合計</th><th>アポ合計</th><th>成約合計</th><th>KPI達成率</th></tr></thead>
-      <tbody>${stats.map(x=>`<tr><td>${x.p.name||'(未設定)'}</td><td>${x.reportCount}件</td><td>¥${x.sales}万</td><td>${x.appo}件</td><td>${x.contract}件</td><td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td></tr>`).join('')||'<tr><td colspan="6" class="text-muted text-sm">データなし</td></tr>'}</tbody>
-    </table>
-  </div>`;
+  document.getElementById('adminContent').innerHTML = `
+    <div class="card mb-16">
+      <h3 class="mb-12">組織全体の月次推移（過去6ヶ月）</h3>
+      <div class="chart-wrap" style="height:200px"><canvas id="adminMonthlyOrgTrendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="flex-between mb-12">
+        <h3>📅 月間集計（今月・前月比）</h3>
+        <div class="tabs" id="adminMonthlySortTabs">
+          <div class="tab ${adminMonthlySortKey==='sales'?'active':''}" onclick="setAdminMonthlySort('sales',this)">売上順</div>
+          <div class="tab ${adminMonthlySortKey==='kpi'?'active':''}" onclick="setAdminMonthlySort('kpi',this)">KPI達成率順</div>
+        </div>
+      </div>
+      <div id="adminMonthlyTableWrap"></div>
+    </div>`;
+  renderAdminMonthlyTable();
+  renderAdminMonthlyOrgTrendChart();
+}
+function setAdminMonthlySort(key, el){
+  adminMonthlySortKey = key;
+  document.querySelectorAll('#adminMonthlySortTabs .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderAdminMonthlyTable();
+}
+function renderAdminMonthlyTable(){
+  const prevPrefix = adminMonthPrefix(1);
+  const stats = _adminData.profiles.map(p=>{
+    const cur = adminMemberStats(p);
+    const prev = adminMemberStatsForMonth(p, prevPrefix);
+    const salesChange = prev.sales>0 ? Math.round((cur.sales-prev.sales)/prev.sales*100) : (cur.sales>0?100:0);
+    return {p, ...cur, prevSales:prev.sales, salesChange};
+  }).sort((a,b)=>b[adminMonthlySortKey]-a[adminMonthlySortKey]);
+  document.getElementById('adminMonthlyTableWrap').innerHTML = `
+    <table><thead><tr><th>氏名</th><th>日報件数</th><th>売上合計</th><th>前月比</th><th>アポ合計</th><th>成約合計</th><th>KPI達成率</th></tr></thead>
+      <tbody>${stats.map(x=>{
+        const changeColor = x.salesChange>0?'var(--green)':x.salesChange<0?'var(--red)':'var(--text2)';
+        return `<tr><td>${x.p.name||'(未設定)'}</td><td>${x.reportCount}件</td><td>¥${x.sales}万</td><td style="color:${changeColor};font-weight:600">${x.salesChange>0?'+':''}${x.salesChange}%</td><td>${x.appo}件</td><td>${x.contract}件</td><td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td></tr>`;
+      }).join('')||'<tr><td colspan="7" class="text-muted text-sm">データなし</td></tr>'}</tbody>
+    </table>`;
+}
+let chartAdminMonthlyOrgTrend;
+function renderAdminMonthlyOrgTrendChart(){
+  const canvas = document.getElementById('adminMonthlyOrgTrendChart');
+  if(!canvas) return;
+  const labels=[], salesData=[], kpiData=[];
+  for(let i=5;i>=0;i--){
+    const prefix = adminMonthPrefix(i);
+    const monthReports = _adminData.reports.filter(r=>r.date && r.date.startsWith(prefix));
+    const sales = monthReports.reduce((s,r)=>s+(r.sales||0),0);
+    const goalSum = _adminData.profiles.reduce((s,p)=>s+(p.goals?.sales||500),0);
+    labels.push(prefix.slice(5)+'月');
+    salesData.push(sales);
+    kpiData.push(goalSum>0?Math.round(sales/goalSum*100):0);
+  }
+  if(chartAdminMonthlyOrgTrend){chartAdminMonthlyOrgTrend.destroy();}
+  chartAdminMonthlyOrgTrend = new Chart(canvas.getContext('2d'), {
+    data:{labels, datasets:[
+      {type:'bar',label:'売上(万)',data:salesData,backgroundColor:'#60a5fa',yAxisID:'y'},
+      {type:'line',label:'平均KPI達成率(%)',data:kpiData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',pointRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:10}}}},
+      scales:{
+        y:{position:'left',ticks:{font:{size:10},callback:v=>v+'万'}},
+        y1:{position:'right',ticks:{font:{size:10},callback:v=>v+'%'},grid:{drawOnChartArea:false}},
+        x:{ticks:{font:{size:10}}}
+      }
+    }
+  });
 }
 function renderAdminReportsRanking(){
   const stats = [..._adminData.profiles.map(p=>({p,...adminMemberStats(p)}))].sort((a,b)=>b.sales-a.sales);
