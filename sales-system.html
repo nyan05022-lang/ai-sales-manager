@@ -3929,6 +3929,56 @@ function renderAdminReportsAI(){
   const weekdayAvg = weekdayTotals.map((t,i)=>weekdayCounts[i]>0?Math.round(t/weekdayCounts[i]):0);
   const lowestWdIdx = weekdayAvg.indexOf(Math.min(...weekdayAvg.filter((v,i)=>weekdayCounts[i]>0)));
 
+  // ファネル分析（架電→アポ→商談→成約の歩留まり）
+  const prefix = adminMonthPrefix();
+  const funnelRows = _adminData.profiles.map(p=>{
+    const reps = _adminData.reports.filter(r=>r.user_id===p.id && r.date && r.date.startsWith(prefix));
+    const calls = reps.reduce((s,r)=>s+(r.calls||0),0);
+    const appo = reps.reduce((s,r)=>s+(r.appo||0),0);
+    const meeting = reps.reduce((s,r)=>s+(r.meeting||0),0);
+    const contract = reps.reduce((s,r)=>s+(r.contract||0),0);
+    const appoRate = calls>0?appo/calls:null;
+    const meetingRate = appo>0?meeting/appo:null;
+    const contractRate = meeting>0?contract/meeting:null;
+    return {p, calls, appo, meeting, contract, appoRate, meetingRate, contractRate};
+  });
+  const avgOfRate = key => {
+    const vals = funnelRows.map(r=>r[key]).filter(v=>v!=null);
+    return vals.length>0 ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  };
+  const teamAppoRate = avgOfRate('appoRate'), teamMeetingRate = avgOfRate('meetingRate'), teamContractRate = avgOfRate('contractRate');
+  const stageLabels = {appoRate:'架電→アポ',meetingRate:'アポ→商談',contractRate:'商談→成約'};
+  const funnelWithGap = funnelRows.filter(r=>r.calls>0).map(r=>{
+    const gaps = ['appoRate','meetingRate','contractRate'].map(key=>{
+      const teamRate = {appoRate:teamAppoRate,meetingRate:teamMeetingRate,contractRate:teamContractRate}[key];
+      if(r[key]==null || teamRate==null) return {key, gap:0};
+      return {key, gap:r[key]-teamRate};
+    });
+    const weakest = gaps.reduce((min,g)=>g.gap<min.gap?g:min, gaps[0]);
+    return {...r, weakestStage:weakest};
+  }).filter(r=>r.weakestStage.gap<0).sort((a,b)=>a.weakestStage.gap-b.weakestStage.gap);
+
+  // スキル評価と歩留まりの相関（スキルは高いが成果に出ていない人）
+  const overallRateOf = r => r.calls>0 ? r.contract/r.calls : null;
+  const teamOverallRate = (()=>{ const vals=funnelRows.map(r=>overallRateOf(r)).filter(v=>v!=null); return vals.length>0?vals.reduce((a,b)=>a+b,0)/vals.length:null; })();
+  const skillMismatch = stats.filter(x=>{
+    const fr = funnelRows.find(r=>r.p.id===x.p.id);
+    const overall = fr?overallRateOf(fr):null;
+    return x.skillAvg!=null && x.skillAvg>=70 && overall!=null && teamOverallRate!=null && overall < teamOverallRate*0.7;
+  });
+
+  // トレンド予測（今月のペースで月末目標に届くか）
+  const now = new Date();
+  const daysElapsed = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const forecastRows = stats.map(x=>{
+    const goal = x.p.goals?.sales||500;
+    const projected = daysElapsed>0 ? Math.round(x.sales/daysElapsed*daysInMonth) : 0;
+    const projectedRate = goal>0?Math.round(projected/goal*100):0;
+    return {p:x.p, sales:x.sales, projected, projectedRate, goal};
+  }).sort((a,b)=>a.projectedRate-b.projectedRate);
+  const shortfallForecast = forecastRows.filter(r=>r.projectedRate<100);
+
   document.getElementById('adminContent').innerHTML = `
     <div class="card mb-16">
       <h3 class="mb-12">🤖 AI分析</h3>
@@ -3951,6 +4001,36 @@ function renderAdminReportsAI(){
       <h3 class="mb-12">⚠️ 活動量の異常検知（架電数の急減）</h3>
       ${anomalies.length===0?'<p class="text-muted text-sm">異常な変動は検出されませんでした</p>':`<table><thead><tr><th>氏名</th><th>直近の架電数</th><th>過去平均</th><th>日付</th></tr></thead>
         <tbody>${anomalies.map(a=>`<tr><td>${a.p.name||'(未設定)'}</td><td style="color:var(--red);font-weight:700">${a.latestCalls}件</td><td>${a.prevAvg}件</td><td>${a.date}</td></tr>`).join('')}</tbody>
+      </table>`}
+    </div>
+    <div class="card mb-16">
+      <h3 class="mb-12">🔍 ファネル分析（弱点ステージの特定）</h3>
+      <p class="text-xs text-muted mb-8">チーム平均の歩留まり率：架電→アポ ${teamAppoRate!=null?Math.round(teamAppoRate*100)+'%':'-'} / アポ→商談 ${teamMeetingRate!=null?Math.round(teamMeetingRate*100)+'%':'-'} / 商談→成約 ${teamContractRate!=null?Math.round(teamContractRate*100)+'%':'-'}</p>
+      ${funnelWithGap.length===0?'<p class="text-muted text-sm">チーム平均を下回るメンバーはいません</p>':`<table><thead><tr><th>氏名</th><th>弱いステージ</th><th>本人の歩留まり</th><th>チーム平均</th><th>差分</th></tr></thead>
+        <tbody>${funnelWithGap.map(r=>{
+          const key = r.weakestStage.key;
+          const teamRate = {appoRate:teamAppoRate,meetingRate:teamMeetingRate,contractRate:teamContractRate}[key];
+          const myRate = r[key];
+          return `<tr><td>${r.p.name||'(未設定)'}</td><td>${stageLabels[key]}</td><td style="color:var(--red);font-weight:700">${myRate!=null?Math.round(myRate*100)+'%':'-'}</td><td>${teamRate!=null?Math.round(teamRate*100)+'%':'-'}</td><td style="color:var(--red)">${Math.round(r.weakestStage.gap*100)}pt</td></tr>`;
+        }).join('')}</tbody>
+      </table>`}
+    </div>
+    <div class="card mb-16">
+      <h3 class="mb-12">🧩 スキル評価と成果の不一致</h3>
+      <p class="text-xs text-muted mb-8">ロールプレイのスキル評価は高い（70点以上）が、架電→成約の総合歩留まりがチーム平均の7割未満のメンバーです</p>
+      ${skillMismatch.length===0?'<p class="text-muted text-sm">該当者なし</p>':`<table><thead><tr><th>氏名</th><th>スキル平均</th><th>架電→成約率</th><th>チーム平均</th></tr></thead>
+        <tbody>${skillMismatch.map(x=>{
+          const fr = funnelRows.find(r=>r.p.id===x.p.id);
+          const overall = fr?overallRateOf(fr):null;
+          return `<tr><td>${x.p.name||'(未設定)'}</td><td style="color:var(--purple);font-weight:700">${x.skillAvg}点</td><td style="color:var(--red)">${overall!=null?Math.round(overall*100)+'%':'-'}</td><td>${teamOverallRate!=null?Math.round(teamOverallRate*100)+'%':'-'}</td></tr>`;
+        }).join('')}</tbody>
+      </table>`}
+    </div>
+    <div class="card mb-16">
+      <h3 class="mb-12">📈 月末目標達成予測</h3>
+      <p class="text-xs text-muted mb-8">今月${daysElapsed}日目までのペースを元に、月末時点の売上を予測しています</p>
+      ${shortfallForecast.length===0?'<p class="text-muted text-sm">全メンバーが現在のペースで目標達成見込みです</p>':`<table><thead><tr><th>氏名</th><th>現在の売上</th><th>予測売上</th><th>目標</th><th>予測達成率</th></tr></thead>
+        <tbody>${shortfallForecast.map(r=>`<tr><td>${r.p.name||'(未設定)'}</td><td>¥${r.sales}万</td><td>¥${r.projected}万</td><td>¥${r.goal}万</td><td style="color:${r.projectedRate<70?'var(--red)':'var(--amber)'};font-weight:700">${r.projectedRate}%</td></tr>`).join('')}</tbody>
       </table>`}
     </div>
     <div class="card">
