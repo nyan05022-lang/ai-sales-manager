@@ -3654,12 +3654,23 @@ function renderAdminMembers(){
     document.getElementById('adminContent').innerHTML = `<div class="card"><p class="text-muted text-sm">左の「メンバー管理」一覧から確認したいメンバーを選択してください</p></div>`;
   }
 }
+let _adminMembersFilter = '';
 function renderAdminMembersSidebarList(){
   const wrap = document.getElementById('adminMembersSubNav');
-  const stats = sortedAdminMemberStats();
-  wrap.innerHTML = stats.map(x=>`<div class="nav-item nav-sub ${x.p.id===_adminSelectedMemberId?'active':''}" style="padding-left:40px" onclick="viewAdminMemberDetail('${x.p.id}')">
+  const stats = sortedAdminMemberStats().filter(x=>!_adminMembersFilter || (x.p.name||'').includes(_adminMembersFilter));
+  const searchBox = `<div style="padding:4px 12px 6px 40px">
+    <input type="text" id="adminMembersSearchInput" value="${_adminMembersFilter}" placeholder="氏名で検索" style="font-size:12px;padding:5px 8px" oninput="filterAdminMembersSidebarList(this.value)">
+  </div>`;
+  const list = stats.map(x=>`<div class="nav-item nav-sub ${x.p.id===_adminSelectedMemberId?'active':''}" style="padding-left:40px" onclick="viewAdminMemberDetail('${x.p.id}')">
     <span>${x.p.name||'(未設定)'}${x.p.is_admin?' <i class="ti ti-shield-lock" style="font-size:11px;color:var(--blue)"></i>':''}${(x.daysSinceReport==null||x.daysSinceReport>=3)?' <i class="ti ti-alert-triangle-filled" style="color:var(--red);font-size:11px"></i>':''}</span>
-  </div>`).join('');
+  </div>`).join('') || '<p class="text-xs text-muted" style="padding:4px 12px 6px 40px">該当するメンバーがいません</p>';
+  wrap.innerHTML = searchBox + list;
+  const input = document.getElementById('adminMembersSearchInput');
+  if(input) setTimeout(()=>{ input.focus(); input.setSelectionRange(input.value.length, input.value.length); },0);
+}
+function filterAdminMembersSidebarList(value){
+  _adminMembersFilter = value;
+  renderAdminMembersSidebarList();
 }
 function viewAdminMemberDetail(userId){
   _adminSelectedMemberId = userId;
