@@ -3548,10 +3548,9 @@ function renderAdminOrgTrendChart(profiles){
   const canvas = document.getElementById('adminOrgTrendChart');
   if(!canvas) return;
   chartAdminOrgTrend = new Chart(canvas.getContext('2d'), {
-    type:'line',
     data:{labels, datasets:[
-      {label:'組織売上（万円）',data:salesData,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.1)',tension:.4,fill:true,yAxisID:'y',pointRadius:3},
-      {label:'平均KPI達成率（%）',data:kpiData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3],pointRadius:3}
+      {type:'bar',label:'組織売上（万円）',data:salesData,backgroundColor:'#34d399',yAxisID:'y'},
+      {type:'line',label:'平均KPI達成率（%）',data:kpiData,borderColor:'#a78bfa',backgroundColor:'transparent',tension:.4,yAxisID:'y1',borderDash:[5,3],pointRadius:3}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{labels:{font:{size:11}}}},
