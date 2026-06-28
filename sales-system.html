@@ -4142,7 +4142,7 @@ function renderAdminReportsMonthly(){
     </div>
     <div class="card">
       <div class="flex-between mb-12">
-        <h3>📅 月間集計（今月・前月比）</h3>
+        <h3>🏆 月間ランキング（今月・前月比）</h3>
         <div class="tabs" id="adminMonthlySortTabs">
           <div class="tab ${adminMonthlySortKey==='sales'?'active':''}" onclick="setAdminMonthlySort('sales',this)">売上順</div>
           <div class="tab ${adminMonthlySortKey==='kpi'?'active':''}" onclick="setAdminMonthlySort('kpi',this)">KPI達成率順</div>
@@ -4168,11 +4168,11 @@ function renderAdminMonthlyTable(){
     return {p, ...cur, prevSales:prev.sales, salesChange};
   }).sort((a,b)=>b[adminMonthlySortKey]-a[adminMonthlySortKey]);
   document.getElementById('adminMonthlyTableWrap').innerHTML = `
-    <table><thead><tr><th>氏名</th><th>日報件数</th><th>売上合計</th><th>前月比</th><th>アポ合計</th><th>成約合計</th><th>KPI達成率</th></tr></thead>
-      <tbody>${stats.map(x=>{
+    <table><thead><tr><th>順位</th><th>氏名</th><th>日報件数</th><th>売上合計</th><th>前月比</th><th>アポ合計</th><th>成約合計</th><th>KPI達成率</th></tr></thead>
+      <tbody>${stats.map((x,i)=>{
         const changeColor = x.salesChange>0?'var(--green)':x.salesChange<0?'var(--red)':'var(--text2)';
-        return `<tr><td>${x.p.name||'(未設定)'}</td><td>${x.reportCount}件</td><td>¥${x.sales}万</td><td style="color:${changeColor};font-weight:600">${x.salesChange>0?'+':''}${x.salesChange}%</td><td>${x.appo}件</td><td>${x.contract}件</td><td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td></tr>`;
-      }).join('')||'<tr><td colspan="7" class="text-muted text-sm">データなし</td></tr>'}</tbody>
+        return `<tr><td><div class="rank-num rank-${Math.min(i+1,3)}">${i+1}</div></td><td>${x.p.name||'(未設定)'}</td><td>${x.reportCount}件</td><td>¥${x.sales}万</td><td style="color:${changeColor};font-weight:600">${x.salesChange>0?'+':''}${x.salesChange}%</td><td>${x.appo}件</td><td>${x.contract}件</td><td><span class="badge ${x.kpi>=80?'badge-green':x.kpi>=50?'badge-amber':'badge-red'}">${x.kpi}%</span></td></tr>`;
+      }).join('')||'<tr><td colspan="8" class="text-muted text-sm">データなし</td></tr>'}</tbody>
     </table>`;
 }
 let chartAdminMonthlyOrgTrend;
