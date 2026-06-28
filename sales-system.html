@@ -3814,7 +3814,7 @@ function renderAdminReportsList(){
         <input type="date" id="reportFilterDateTo" style="width:150px" onchange="filterAdminReportsList()">
         <button class="btn-ghost btn-sm" onclick="document.getElementById('reportFilterName').value='';document.getElementById('reportFilterDateFrom').value='';document.getElementById('reportFilterDateTo').value='';filterAdminReportsList()">クリア</button>
       </div>
-      <p class="text-xs text-muted mb-8">🔴の行は3日以上日報が未提出のメンバーです</p>
+      <p class="text-xs text-muted mb-8">通常は直近1週間分のみ表示されます。氏名・日付で検索すると期間を問わず表示されます。🔴の行は3日以上日報が未提出のメンバーです</p>
       <table><thead><tr><th>氏名</th><th>日付</th><th>架電</th><th>アポ</th><th>商談</th><th>成約</th><th>売上</th><th></th></tr></thead>
         <tbody id="reportListBody"></tbody>
       </table>
@@ -3828,10 +3828,16 @@ function filterAdminReportsList(){
   const nameFilter = (document.getElementById('reportFilterName')?.value||'').trim();
   const dateFrom = document.getElementById('reportFilterDateFrom')?.value||'';
   const dateTo = document.getElementById('reportFilterDateTo')?.value||'';
+  const hasFilter = !!(nameFilter || dateFrom || dateTo);
   let reports = [..._adminData.reports].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(nameFilter) reports = reports.filter(r=>profileName(r.user_id).includes(nameFilter));
   if(dateFrom) reports = reports.filter(r=>r.date && r.date>=dateFrom);
   if(dateTo) reports = reports.filter(r=>r.date && r.date<=dateTo);
+  if(!hasFilter){
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-6);
+    const weekAgoStr = weekAgo.toISOString().split('T')[0];
+    reports = reports.filter(r=>r.date && r.date>=weekAgoStr);
+  }
   _adminFilteredReports = reports;
   const body = document.getElementById('reportListBody');
   if(!body) return;
