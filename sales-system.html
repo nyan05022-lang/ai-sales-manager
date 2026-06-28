@@ -342,7 +342,6 @@ tr:hover td{background:var(--bg3)}
         <div class="nav-item nav-sub" id="navAdminReportsDetail" style="padding-left:40px" onclick="goToAdminReportsSubTab('detail',this)"><span>日報詳細</span></div>
         <div class="nav-item nav-sub" id="navAdminReportsAi" style="padding-left:40px" onclick="goToAdminReportsSubTab('ai',this)"><span>AI分析</span></div>
         <div class="nav-item nav-sub" id="navAdminReportsMonthly" style="padding-left:40px" onclick="goToAdminReportsSubTab('monthly',this)"><span>月間集計</span></div>
-        <div class="nav-item nav-sub" id="navAdminReportsRanking" style="padding-left:40px" onclick="goToAdminReportsSubTab('ranking',this)"><span>ランキング</span></div>
       </div>
       <div class="nav-item" id="navAdminMind" style="display:none" onclick="goToAdminTab('mind',this)"><span class="nav-icon-wrap"><i class="ti ti-brain" style="color:#a78bfa"></i></span><span>マインド管理</span></div>
       <div class="nav-item" id="navAdminPermissions" style="display:none" onclick="goToAdminTab('permissions',this)"><span class="nav-icon-wrap"><i class="ti ti-lock" style="color:#fb7185"></i></span><span>権限管理</span></div>
@@ -3876,7 +3875,7 @@ function renderAdminReports(){
   renderAdminReportsSub();
 }
 function highlightAdminReportsSidebar(tab){
-  const map = {list:'navAdminReportsList',detail:'navAdminReportsDetail',ai:'navAdminReportsAi',monthly:'navAdminReportsMonthly',ranking:'navAdminReportsRanking'};
+  const map = {list:'navAdminReportsList',detail:'navAdminReportsDetail',ai:'navAdminReportsAi',monthly:'navAdminReportsMonthly'};
   document.querySelectorAll('.nav-sub').forEach(n=>n.classList.remove('active'));
   const el = document.getElementById(map[tab]);
   if(el) el.classList.add('active');
@@ -3886,7 +3885,6 @@ function renderAdminReportsSub(){
   else if(adminReportsTab==='detail') renderAdminReportsDetail();
   else if(adminReportsTab==='ai') renderAdminReportsAI();
   else if(adminReportsTab==='monthly') renderAdminReportsMonthly();
-  else if(adminReportsTab==='ranking') renderAdminReportsRanking();
 }
 function renderAdminReportsList(){
   const profileName = id => (_adminData.profiles.find(p=>p.id===id)||{}).name||'(不明)';
@@ -4203,15 +4201,6 @@ function renderAdminMonthlyOrgTrendChart(){
       }
     }
   });
-}
-function renderAdminReportsRanking(){
-  const stats = [..._adminData.profiles.map(p=>({p,...adminMemberStats(p)}))].sort((a,b)=>b.sales-a.sales);
-  document.getElementById('adminContent').innerHTML = `<div class="card">
-    <h3 class="mb-12">🏆 売上ランキング（今月）</h3>
-    <table><thead><tr><th>順位</th><th>氏名</th><th>売上</th><th>KPI達成率</th></tr></thead>
-      <tbody>${stats.map((x,i)=>`<tr><td>${i+1}</td><td>${x.p.name||'(未設定)'}</td><td>¥${x.sales}万</td><td>${x.kpi}%</td></tr>`).join('')||'<tr><td colspan="4" class="text-muted text-sm">データなし</td></tr>'}</tbody>
-    </table>
-  </div>`;
 }
 
 // ===== NAV =====
