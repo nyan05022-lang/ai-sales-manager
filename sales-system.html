@@ -3137,6 +3137,7 @@ async function loadAdminData(){
   const {data:sessions} = await sb.from('skill_sessions').select('*');
   const {data:journals, error:journalErr} = await sb.from('mind_journals').select('*');
   if(journalErr) console.error('admin mind_journals error:', journalErr);
+  (reports||[]).forEach((r,i)=>{ r._key = r.id!=null ? String(r.id) : `${r.user_id}_${r.date}_${i}`; });
   _adminData = {profiles:profiles||[], reports:reports||[], sessions:sessions||[], journals:journals||[]};
 }
 async function initAdmin(){
@@ -3837,7 +3838,7 @@ function filterAdminReportsList(){
   body.innerHTML = reports.map(r=>`<tr style="${alertIds.has(r.user_id)?'background:#fde8e8':''}">
     <td>${profileName(r.user_id)}${alertIds.has(r.user_id)?' <i class="ti ti-alert-triangle-filled" style="color:var(--red);font-size:12px"></i>':''}</td>
     <td>${r.date}</td><td>${r.calls||0}</td><td>${r.appo||0}</td><td>${r.meeting||0}</td><td>${r.contract||0}</td><td>¥${r.sales||0}万</td>
-    <td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r.id}')">詳細</button></td>
+    <td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r._key}')">詳細</button></td>
   </tr>`).join('') || '<tr><td colspan="8" class="text-muted text-sm">該当する日報がありません</td></tr>';
 }
 let _adminFilteredReports = [];
@@ -3868,7 +3869,7 @@ function viewAdminReportDetail(reportId){
 }
 function renderAdminReportsDetail(){
   const el = document.getElementById('adminContent');
-  const r = _adminData.reports.find(x=>x.id===_adminSelectedReportId);
+  const r = _adminData.reports.find(x=>x._key===_adminSelectedReportId);
   if(!r){
     el.innerHTML = `<div class="card"><p class="text-muted text-sm">「日報一覧」または「日報承認」から詳細を見たい日報の「詳細」を選択してください</p></div>`;
     return;
@@ -3903,13 +3904,15 @@ function renderAdminReportsApproval(){
       <tbody>${reports.map(r=>`<tr>
         <td>${profileName(r.user_id)}</td><td>${r.date}</td><td>¥${r.sales||0}万</td>
         <td><span class="badge ${r.approved?'badge-green':'badge-amber'}">${r.approved?'承認済み':'未承認'}</span></td>
-        <td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r.id}')">詳細</button> <button class="btn-ghost btn-sm" onclick="toggleReportApproval('${r.id}',${!r.approved})">${r.approved?'承認を取消':'承認する'}</button></td>
+        <td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r._key}')">詳細</button> <button class="btn-ghost btn-sm" onclick="toggleReportApproval('${r._key}',${!r.approved})">${r.approved?'承認を取消':'承認する'}</button></td>
       </tr>`).join('')||'<tr><td colspan="5" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
     </table>
   </div>`;
 }
-async function toggleReportApproval(reportId,newVal){
-  const {error} = await sb.from('daily_reports').update({approved:newVal}).eq('id',reportId);
+async function toggleReportApproval(reportKey,newVal){
+  const r = _adminData.reports.find(x=>x._key===reportKey);
+  if(!r || r.id==null){showNotif('この日報には一意のIDが見つからないため承認できません');return;}
+  const {error} = await sb.from('daily_reports').update({approved:newVal}).eq('id',r.id);
   if(error){showNotif('更新に失敗しました（daily_reportsにapprovedカラムが必要です）');return;}
   showNotif(newVal?'承認しました':'承認を取消しました');
   await loadAdminData();
