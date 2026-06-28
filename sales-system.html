@@ -83,6 +83,7 @@ h1{font-size:22px;font-weight:600}h2{font-size:18px;font-weight:600}h3{font-size
 .nav-icon-wrap{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0}
 #adminReportsSubNav{display:none}
 #adminMembersSubNav{display:none}
+#adminMindSubNav{display:none}
 .nav-sub{font-size:12px}
 .nav-sub.active{background:rgba(255,255,255,.14);color:#fff;font-weight:600}
 .nav-sub.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--blue);border-radius:0 2px 2px 0}
@@ -343,7 +344,8 @@ tr:hover td{background:var(--bg3)}
         <div class="nav-item nav-sub" id="navAdminReportsAi" style="padding-left:40px" onclick="goToAdminReportsSubTab('ai',this)"><span>AI分析</span></div>
         <div class="nav-item nav-sub" id="navAdminReportsMonthly" style="padding-left:40px" onclick="goToAdminReportsSubTab('monthly',this)"><span>月間集計</span></div>
       </div>
-      <div class="nav-item" id="navAdminMind" style="display:none" onclick="goToAdminTab('mind',this)"><span class="nav-icon-wrap"><i class="ti ti-brain" style="color:#a78bfa"></i></span><span>マインド管理</span></div>
+      <div class="nav-item" id="navAdminMind" style="display:none" onclick="goToAdminTab('mind',this)"><span class="nav-icon-wrap"><i class="ti ti-brain" style="color:#a78bfa"></i></span><span style="flex:1">マインド管理</span><i class="ti ti-chevron-down" id="navAdminMindChevron" style="font-size:14px;transition:.2s" onclick="event.stopPropagation();toggleAdminMindSubNav()"></i></div>
+      <div id="adminMindSubNav"></div>
       <div class="nav-item" id="navAdminPermissions" style="display:none" onclick="goToAdminTab('permissions',this)"><span class="nav-icon-wrap"><i class="ti ti-lock" style="color:#fb7185"></i></span><span>権限管理</span></div>
       <div class="nav-section">設定・その他</div>
       <div class="nav-item" onclick="showPage('profile',this)"><span class="nav-icon-wrap"><i class="ti ti-user-circle" style="color:#8aafc8"></i></span><span>プロフィール</span></div>
@@ -937,6 +939,7 @@ async function doAdminLogin(){
   });
   setAdminReportsSubNavOpen(false);
   setAdminMembersSubNavOpen(false);
+  setAdminMindSubNavOpen(false);
   document.getElementById('navSectionAdmin').style.display = 'block';
   showPage('admin', document.getElementById('navAdmin'));
 }
@@ -1232,7 +1235,7 @@ async function loadUserData(userId){
     state.personalityScores = profile.personality_scores||null;
     state.needsDiagnosis = !profile.personality_scores || !('action' in profile.personality_scores);
     state.sliders = {rapport:0,hearing:0,deepdive:0,proposal:0,closing:0};
-    ['navAdmin','navAdminMembers','navAdminPermissions','adminMembersSubNav','navAdminReports','adminReportsSubNav','navAdminMind'].forEach(id=>{
+    ['navAdmin','navAdminMembers','navAdminPermissions','adminMembersSubNav','navAdminReports','adminReportsSubNav','navAdminMind','adminMindSubNav'].forEach(id=>{
       document.getElementById(id).style.display = 'none';
     });
     document.getElementById('navSectionAdmin').style.display = 'none';
@@ -3247,11 +3250,23 @@ function setAdminMembersSubNavOpen(open){
 function toggleAdminMembersSubNav(){
   setAdminMembersSubNavOpen(!adminMembersSubNavOpen);
 }
+let adminMindSubNavOpen = false;
+function setAdminMindSubNavOpen(open){
+  adminMindSubNavOpen = open;
+  const wrap = document.getElementById('adminMindSubNav');
+  const chevron = document.getElementById('navAdminMindChevron');
+  if(wrap) wrap.style.display = open ? 'block' : 'none';
+  if(chevron) chevron.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
+function toggleAdminMindSubNav(){
+  setAdminMindSubNavOpen(!adminMindSubNavOpen);
+}
 function goToAdminTab(tab, el){
   adminTab = tab;
   showPage('admin', el);
   if(tab==='reports') setAdminReportsSubNavOpen(true);
   if(tab==='members') setAdminMembersSubNavOpen(true);
+  if(tab==='mind') setAdminMindSubNavOpen(true);
   renderAdminTab();
 }
 function goToAdminReportsSubTab(subTab, el){
@@ -3300,28 +3315,78 @@ function renderAdminTab(){
   else if(adminTab==='reports') renderAdminReports();
   else if(adminTab==='mind') renderAdminMind();
 }
-function renderAdminMind(){
-  const profiles = _adminData.profiles;
-  const rows = profiles.map(p=>{
+function adminMindTier(burnout){
+  if(!burnout) return null;
+  return burnout.burnoutScore>=50 ? 'red' : burnout.burnoutScore>=25 ? 'amber' : 'green';
+}
+const ADMIN_MIND_TIER_MAP = {red:['🔴要注意','var(--red)'],amber:['🟡やや注意','var(--amber)'],green:['🟢良好','var(--green)']};
+function adminMindRows(){
+  return _adminData.profiles.map(p=>{
     const journals = _adminData.journals.filter(j=>j.user_id===p.id).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
     const burnout = journals.length>0 ? calcBurnout(journals) : null;
-    return {p, journals, burnout};
+    return {p, journals, burnout, tier:adminMindTier(burnout)};
   });
+}
+let _adminMindSelectedId = null;
+let _adminMindFilter = '';
+function renderAdminMind(){
+  renderAdminMindSidebarList();
+  const rows = adminMindRows();
+  if(_adminMindSelectedId && rows.some(r=>r.p.id===_adminMindSelectedId)){
+    renderAdminMindDetail(_adminMindSelectedId);
+  } else {
+    renderAdminMindOverview(rows);
+  }
+}
+function renderAdminMindSidebarList(){
+  const wrap = document.getElementById('adminMindSubNav');
+  if(!document.getElementById('adminMindSearchInput')){
+    wrap.innerHTML = `<div style="padding:4px 12px 6px 40px">
+      <input type="text" id="adminMindSearchInput" placeholder="氏名で検索" style="font-size:12px;padding:5px 8px" oninput="filterAdminMindSidebarList(this.value)">
+    </div>
+    <div id="adminMindListItems"></div>`;
+  }
+  renderAdminMindListItems();
+}
+function renderAdminMindListItems(){
+  const itemsEl = document.getElementById('adminMindListItems');
+  if(!itemsEl) return;
+  const rows = adminMindRows().filter(r=>!_adminMindFilter || (r.p.name||'').includes(_adminMindFilter));
+  itemsEl.innerHTML = rows.map(r=>{
+    const dotColor = r.tier ? ADMIN_MIND_TIER_MAP[r.tier][1] : 'var(--text3)';
+    return `<div class="nav-item nav-sub ${r.p.id===_adminMindSelectedId?'active':''}" style="padding-left:36px" onclick="viewAdminMindDetail('${r.p.id}')">
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};margin-right:6px"></span>
+      <span>${r.p.name||'(未設定)'}</span>
+    </div>`;
+  }).join('') || '<p class="text-xs text-muted" style="padding:4px 12px 6px 40px">該当するメンバーがいません</p>';
+}
+function filterAdminMindSidebarList(value){
+  _adminMindFilter = value;
+  renderAdminMindListItems();
+}
+function viewAdminMindDetail(userId){
+  _adminMindSelectedId = userId;
+  setAdminMindSubNavOpen(true);
+  renderAdminMindListItems();
+  renderAdminMindDetail(userId);
+}
+function adminMindSparkline(journals, color){
+  const vals = journals.slice(-8).map(j=>j.mood*20);
+  if(vals.length<2) return '<span class="text-muted text-xs">データ不足</span>';
+  const w=70,h=22;
+  const step = w/(vals.length-1);
+  const points = vals.map((v,i)=>`${(i*step).toFixed(1)},${(h-(v/100*h)).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="2"/></svg>`;
+}
+function renderAdminMindOverview(rows){
   const recorded = rows.filter(r=>r.journals.length>0);
-  const tier = r => !r.burnout ? null : r.burnout.burnoutScore>=50 ? 'red' : r.burnout.burnoutScore>=25 ? 'amber' : 'green';
-  const redCount = recorded.filter(r=>tier(r)==='red').length;
-  const amberCount = recorded.filter(r=>tier(r)==='amber').length;
-  const greenCount = recorded.filter(r=>tier(r)==='green').length;
-  const tierBadge = r => {
-    const t = tier(r);
-    if(!t) return '<span class="text-muted text-xs">記録なし</span>';
-    const map = {red:['🔴要注意','var(--red)'],amber:['🟡やや注意','var(--amber)'],green:['🟢良好','var(--green)']};
-    return `<span class="badge" style="background:${map[t][1]}22;color:${map[t][1]}">${map[t][0]}</span>`;
-  };
+  const redCount = recorded.filter(r=>r.tier==='red').length;
+  const amberCount = recorded.filter(r=>r.tier==='amber').length;
+  const greenCount = recorded.filter(r=>r.tier==='green').length;
 
   document.getElementById('adminContent').innerHTML = `
     <div class="grid-4 mb-16">
-      <div class="kpi-card"><div class="kpi-label">記録ありメンバー</div><div class="kpi-val text-blue">${recorded.length} / ${profiles.length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">記録ありメンバー</div><div class="kpi-val text-blue">${recorded.length} / ${rows.length}</div></div>
       <div class="kpi-card"><div class="kpi-label">🔴 要注意</div><div class="kpi-val text-red">${redCount}</div></div>
       <div class="kpi-card"><div class="kpi-label">🟡 やや注意</div><div class="kpi-val text-amber">${amberCount}</div></div>
       <div class="kpi-card"><div class="kpi-label">🟢 良好</div><div class="kpi-val text-green">${greenCount}</div></div>
@@ -3330,24 +3395,29 @@ function renderAdminMind(){
       <h3 class="mb-12">チーム全体のマインド推移（週次平均）</h3>
       <div class="chart-wrap" style="height:200px"><canvas id="adminMindOrgChart"></canvas></div>
     </div>
-    <div class="card mb-16">
+    <div class="card">
       <h3 class="mb-12">メンバー別マインド状況</h3>
-      <table>
-        <thead><tr><th>氏名</th><th>記録数</th><th>マインドスコア</th><th>状態</th><th></th></tr></thead>
-        <tbody>
-          ${rows.map(r=>`<tr>
-            <td>${r.p.name||'(未設定)'}</td>
-            <td>${r.journals.length}</td>
-            <td>${r.burnout?r.burnout.mindScore+'点':'-'}</td>
-            <td>${tierBadge(r)}</td>
-            <td>${r.journals.length>0?`<button class="btn-ghost btn-sm" onclick="showAdminMindDetail('${r.p.id}')">詳細</button>`:''}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-    <div class="card" id="adminMindDetailCard" style="display:none">
-      <div class="flex-between mb-12"><h3>マインド詳細</h3><i class="ti ti-x" style="cursor:pointer" onclick="document.getElementById('adminMindDetailCard').style.display='none'"></i></div>
-      <div id="adminMindDetailContent"></div>
+      <p class="text-xs text-muted mb-12">カードをクリックすると詳細を表示します</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">
+        ${rows.map(r=>{
+          const tierColor = r.tier ? ADMIN_MIND_TIER_MAP[r.tier][1] : 'var(--text3)';
+          const tierLabel = r.tier ? ADMIN_MIND_TIER_MAP[r.tier][0] : '記録なし';
+          const initial = (r.p.name||'?')[0];
+          return `<div class="card" style="padding:12px;cursor:pointer" onclick="viewAdminMindDetail('${r.p.id}')">
+            <div class="flex gap-10" style="align-items:center">
+              <div style="width:36px;height:36px;border-radius:50%;background:${tierColor};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">${initial}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.p.name||'(未設定)'}</div>
+                <span class="badge" style="background:${tierColor}22;color:${tierColor};font-size:10px">${tierLabel}</span>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-weight:700;color:var(--purple);font-size:14px">${r.burnout?r.burnout.mindScore+'点':'-'}</div>
+                ${adminMindSparkline(r.journals, tierColor)}
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`;
   renderAdminMindOrgChart(rows);
 }
@@ -3381,12 +3451,19 @@ function renderAdminMindOrgChart(rows){
   });
 }
 let chartAdminMind, chartAdminMindAnalysis, chartAdminMindVsSales;
-function showAdminMindDetail(userId){
+function renderAdminMindDetail(userId){
+  const el = document.getElementById('adminContent');
   const p = _adminData.profiles.find(x=>x.id===userId);
+  if(!p){
+    el.innerHTML = `<div class="card"><p class="text-muted text-sm">左の一覧からメンバーを選択してください</p></div>`;
+    return;
+  }
   const journals = _adminData.journals.filter(j=>j.user_id===userId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  if(journals.length===0){
+    el.innerHTML = `<div class="card"><h3 class="mb-12">${p.name||'(未設定)'}</h3><p class="text-muted text-sm">マインドジャーナルの記録がありません</p></div>`;
+    return;
+  }
   const burnout = calcBurnout(journals);
-  const card = document.getElementById('adminMindDetailCard');
-  card.style.display='block';
 
   const avgOf = key => {
     const vals = journals.map(j=>j[key]).filter(v=>v!=null);
@@ -3408,7 +3485,8 @@ function showAdminMindDetail(userId){
     wowHtml = `<span style="color:${color};font-weight:700">${diff>0?'+':''}${diff}pt</span> 前週比`;
   }
 
-  document.getElementById('adminMindDetailContent').innerHTML = `
+  el.innerHTML = `<div class="card">
+    <h3 class="mb-12">${p.name||'(未設定)'} さんのマインド詳細</h3>
     <div class="grid-3 mb-16">
       <div class="kpi-card"><div class="kpi-label">氏名</div><div class="kpi-val text-blue" style="font-size:14px">${p.name}</div></div>
       <div class="kpi-card"><div class="kpi-label">マインドスコア</div><div class="kpi-val" style="color:var(--purple)">${burnout.mindScore}${wowHtml?` <span style="font-size:11px">(${wowHtml})</span>`:''}</div></div>
@@ -3446,7 +3524,8 @@ function showAdminMindDetail(userId){
     <h4 class="mb-8" style="font-size:13px">直近のジャーナル</h4>
     <table><thead><tr><th>日付</th><th>気分</th><th>メモ</th></tr></thead>
       <tbody>${[...journals].reverse().slice(0,10).map(j=>`<tr><td>${j.date}</td><td>${j.mood}/5</td><td style="font-size:12px">${j.note||''}</td></tr>`).join('')||'<tr><td colspan="3" class="text-muted text-sm">記録なし</td></tr>'}</tbody>
-    </table>`;
+    </table>
+  </div>`;
 
   if(chartAdminMind){chartAdminMind.destroy();}
   const canvas = document.getElementById('adminMindChart');
