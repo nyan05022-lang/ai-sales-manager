@@ -648,6 +648,10 @@ tr:hover td{background:var(--bg3)}
           </div>
           <div id="reportAnalysisResult" style="margin-top:16px"></div>
         </div>
+        <div class="card mb-16" id="personalFunnelCard">
+          <h3 class="mb-12">📊 営業ファネル分析</h3>
+          <div id="personalFunnelContent"></div>
+        </div>
 
         <div class="grid-2" style="gap:16px">
           <div>
@@ -2398,8 +2402,11 @@ function initCoach(){
     document.getElementById('weeklyGoals').innerHTML='<p class="text-muted text-sm">日報を入力するとAIコーチが目標を分析します</p>';
     document.getElementById('coachPlan').innerHTML='<p class="text-muted text-sm" style="padding:12px">日報データがありません。まず日報を入力してください。</p>';
     if(chartGap){chartGap.destroy();chartGap=null;}
+    const fc = document.getElementById('personalFunnelContent');
+    if(fc) fc.innerHTML = '<p class="text-muted text-sm">日報を入力するとファネル分析が表示されます</p>';
     return;
   }
+  renderPersonalFunnelAnalysis(mReports);
   const totalSales = mReports.reduce((s,r)=>s+(r.sales||0),0);
   const totalAppo = mReports.reduce((s,r)=>s+(r.appo||0),0);
   const totalCall = mReports.reduce((s,r)=>s+(r.calls||0),0);
@@ -2441,6 +2448,76 @@ function initCoach(){
   const rankMe = (state._rankData||[]).find(p=>p.isMe)||{sales:totalSales,appo:totalAppo};
   const rankTop = (state._rankData||[])[0]||{sales:Math.round(totalSales*1.5),appo:Math.round(totalAppo*1.3)};
   chartGap=new Chart(document.getElementById('chartGap').getContext('2d'),{type:'bar',data:{labels:['売上（万）','アポ数','成約数'],datasets:[{label:'あなた',data:[totalSales,totalAppo,totalContract],backgroundColor:'rgba(79,142,247,.7)'},{label:'トップ',data:[rankTop.sales,rankTop.appo,rankTop.contract||Math.round(totalContract*1.3)],backgroundColor:'rgba(52,211,153,.5)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#4a6f8a',font:{size:11}}}},scales:{x:{ticks:{color:'#4a6f8a',font:{size:10}}},y:{ticks:{color:'#4a6f8a',font:{size:10}}}}}});
+}
+function renderPersonalFunnelAnalysis(mReports){
+  const el = document.getElementById('personalFunnelContent');
+  if(!el) return;
+  const stageLabels = {appoRate:'架電→アポ',meetingRate:'アポ→商談',contractRate:'商談→成約'};
+
+  // 今月の歩留まり
+  const calls = mReports.reduce((s,r)=>s+(r.calls||0),0);
+  const appo = mReports.reduce((s,r)=>s+(r.appo||0),0);
+  const meeting = mReports.reduce((s,r)=>s+(r.meeting||0),0);
+  const contract = mReports.reduce((s,r)=>s+(r.contract||0),0);
+  const appoRate = calls>0?appo/calls:null;
+  const meetingRate = appo>0?meeting/appo:null;
+  const contractRate = meeting>0?contract/meeting:null;
+
+  // 過去（今月を除く直近の日報）の自分の平均歩留まり
+  const now = new Date();
+  const curPrefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const pastReports = state.reports.filter(r=>r.date && !r.date.startsWith(curPrefix));
+  const pCalls = pastReports.reduce((s,r)=>s+(r.calls||0),0);
+  const pAppo = pastReports.reduce((s,r)=>s+(r.appo||0),0);
+  const pMeeting = pastReports.reduce((s,r)=>s+(r.meeting||0),0);
+  const pContract = pastReports.reduce((s,r)=>s+(r.contract||0),0);
+  const pastRates = {
+    appoRate: pCalls>0?pAppo/pCalls:null,
+    meetingRate: pAppo>0?pMeeting/pAppo:null,
+    contractRate: pMeeting>0?pContract/pMeeting:null,
+  };
+  const curRates = {appoRate, meetingRate, contractRate};
+  const gaps = Object.keys(stageLabels).map(key=>{
+    if(curRates[key]==null || pastRates[key]==null) return {key, gap:0};
+    return {key, gap:curRates[key]-pastRates[key]};
+  });
+  const weakest = pastReports.length>=3 ? gaps.reduce((min,g)=>g.gap<min.gap?g:min, gaps[0]) : null;
+
+  let funnelHtml = `<div class="grid-3 mb-12" style="gap:8px;font-size:12px">
+    ${Object.entries(stageLabels).map(([key,label])=>{
+      const rate = curRates[key];
+      const past = pastRates[key];
+      const color = rate==null?'var(--text2)':past==null?'var(--blue)':rate>=past?'var(--green)':'var(--red)';
+      return `<div class="kpi-card" style="padding:8px 10px"><div class="kpi-label">${label}</div><div class="kpi-val" style="font-size:16px;color:${color}">${rate!=null?Math.round(rate*100)+'%':'-'}</div>${past!=null?`<div class="text-xs text-muted">過去平均 ${Math.round(past*100)}%</div>`:''}</div>`;
+    }).join('')}
+  </div>`;
+  if(weakest && weakest.gap<0){
+    funnelHtml += `<div class="ai-box" style="margin-top:8px"><div class="ai-box-header"><i class="ti ti-sparkles"></i>AI指摘</div><p style="font-size:13px;line-height:1.7">過去の自分と比べて「<strong>${stageLabels[weakest.key]}</strong>」の歩留まりが${Math.abs(Math.round(weakest.gap*100))}pt低下しています。ここを重点的に改善しましょう。</p></div>`;
+  }
+
+  // スキル評価と成果の不一致（自分のみ）
+  const skillAvg = skillSessions.length>0 ? Math.round(skillSessions.reduce((s,r)=>s+((r.rapport+r.hearing+r.deepdive+r.proposal+r.closing)/5),0)/skillSessions.length) : null;
+  const overallRate = calls>0?contract/calls:null;
+  const pastOverallRate = pCalls>0?pContract/pCalls:null;
+  let skillHtml = '';
+  if(skillAvg!=null && skillAvg>=70 && overallRate!=null && pastOverallRate!=null && overallRate < pastOverallRate*0.7){
+    skillHtml = `<div class="ai-box" style="margin-top:8px"><div class="ai-box-header"><i class="ti ti-sparkles"></i>スキルと成果のギャップ</div><p style="font-size:13px;line-height:1.7">ロールプレイのスキル評価は${skillAvg}点と高い一方、今月の架電→成約率（${Math.round(overallRate*100)}%）は過去の自分の平均（${Math.round(pastOverallRate*100)}%）より大きく下がっています。スキルは十分なので、行動量や商談機会の確保を見直してみましょう。</p></div>`;
+  }
+
+  // 月末目標達成予測（自分のみ）
+  const daysElapsed = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const totalSales = mReports.reduce((s,r)=>s+(r.sales||0),0);
+  const goal = state.user.goals?.sales||500;
+  const projected = daysElapsed>0 ? Math.round(totalSales/daysElapsed*daysInMonth) : 0;
+  const projectedRate = goal>0?Math.round(projected/goal*100):0;
+  const forecastColor = projectedRate>=100?'var(--green)':projectedRate>=70?'var(--amber)':'var(--red)';
+  const forecastHtml = `<div class="card mt-12" style="padding:12px;background:var(--bg3)">
+    <div class="flex-between text-sm mb-4"><span>📈 月末目標達成予測</span><span style="font-weight:700;color:${forecastColor}">${projectedRate}%</span></div>
+    <p class="text-xs text-muted">現在のペースで進むと月末売上は<strong>¥${projected}万</strong>の見込みです（目標¥${goal}万）。${projectedRate<100?'このままでは目標未達の見込みです。残り日数で追い上げましょう。':'このペースなら目標達成できそうです！'}</p>
+  </div>`;
+
+  el.innerHTML = funnelHtml + skillHtml + forecastHtml;
 }
 function analyzeReports(){
   const btn=document.getElementById('analyzeBtn');
