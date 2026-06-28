@@ -340,7 +340,6 @@ tr:hover td{background:var(--bg3)}
       <div id="adminReportsSubNav">
         <div class="nav-item nav-sub" id="navAdminReportsList" style="padding-left:40px" onclick="goToAdminReportsSubTab('list',this)"><span>日報一覧</span></div>
         <div class="nav-item nav-sub" id="navAdminReportsDetail" style="padding-left:40px" onclick="goToAdminReportsSubTab('detail',this)"><span>日報詳細</span></div>
-        <div class="nav-item nav-sub" id="navAdminReportsApproval" style="padding-left:40px" onclick="goToAdminReportsSubTab('approval',this)"><span>日報承認</span></div>
         <div class="nav-item nav-sub" id="navAdminReportsAi" style="padding-left:40px" onclick="goToAdminReportsSubTab('ai',this)"><span>AI分析</span></div>
         <div class="nav-item nav-sub" id="navAdminReportsMonthly" style="padding-left:40px" onclick="goToAdminReportsSubTab('monthly',this)"><span>月間集計</span></div>
         <div class="nav-item nav-sub" id="navAdminReportsRanking" style="padding-left:40px" onclick="goToAdminReportsSubTab('ranking',this)"><span>ランキング</span></div>
@@ -3784,7 +3783,7 @@ function renderAdminReports(){
   renderAdminReportsSub();
 }
 function highlightAdminReportsSidebar(tab){
-  const map = {list:'navAdminReportsList',detail:'navAdminReportsDetail',approval:'navAdminReportsApproval',ai:'navAdminReportsAi',monthly:'navAdminReportsMonthly',ranking:'navAdminReportsRanking'};
+  const map = {list:'navAdminReportsList',detail:'navAdminReportsDetail',ai:'navAdminReportsAi',monthly:'navAdminReportsMonthly',ranking:'navAdminReportsRanking'};
   document.querySelectorAll('.nav-sub').forEach(n=>n.classList.remove('active'));
   const el = document.getElementById(map[tab]);
   if(el) el.classList.add('active');
@@ -3792,7 +3791,6 @@ function highlightAdminReportsSidebar(tab){
 function renderAdminReportsSub(){
   if(adminReportsTab==='list') renderAdminReportsList();
   else if(adminReportsTab==='detail') renderAdminReportsDetail();
-  else if(adminReportsTab==='approval') renderAdminReportsApproval();
   else if(adminReportsTab==='ai') renderAdminReportsAI();
   else if(adminReportsTab==='monthly') renderAdminReportsMonthly();
   else if(adminReportsTab==='ranking') renderAdminReportsRanking();
@@ -3886,7 +3884,6 @@ function renderAdminReportsDetail(){
       <div class="kpi-card"><div class="kpi-label">氏名</div><div class="kpi-val text-blue" style="font-size:14px">${profileName}</div></div>
       <div class="kpi-card"><div class="kpi-label">日付</div><div class="kpi-val" style="font-size:14px">${r.date}</div></div>
       <div class="kpi-card"><div class="kpi-label">売上</div><div class="kpi-val text-green">¥${r.sales||0}万</div></div>
-      <div class="kpi-card"><div class="kpi-label">承認状態</div><div class="kpi-val" style="font-size:14px;color:${r.approved?'var(--green)':'var(--amber)'}">${r.approved?'承認済み':'未承認'}</div></div>
     </div>
     <div class="grid-4 mb-16" style="font-size:13px">
       <div><span class="text-muted">架電</span><br><strong>${r.calls||0}件</strong></div>
@@ -3899,29 +3896,6 @@ function renderAdminReportsDetail(){
     <h4 class="mb-8" style="font-size:13px">改善点</h4><p class="text-sm mb-12">${r.bad||'(未入力)'}</p>
     <h4 class="mb-8" style="font-size:13px">次の予定</h4><p class="text-sm">${r.plan||'(未入力)'}</p>
   </div>`;
-}
-function renderAdminReportsApproval(){
-  const reports = [..._adminData.reports].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,50);
-  const profileName = id => (_adminData.profiles.find(p=>p.id===id)||{}).name||'(不明)';
-  document.getElementById('adminContent').innerHTML = `<div class="card">
-    <h3 class="mb-12">✅ 日報承認</h3>
-    <table><thead><tr><th>氏名</th><th>日付</th><th>売上</th><th>状態</th><th></th></tr></thead>
-      <tbody>${reports.map(r=>`<tr>
-        <td>${profileName(r.user_id)}</td><td>${r.date}</td><td>¥${r.sales||0}万</td>
-        <td><span class="badge ${r.approved?'badge-green':'badge-amber'}">${r.approved?'承認済み':'未承認'}</span></td>
-        <td><button class="btn-ghost btn-sm" onclick="viewAdminReportDetail('${r._key}')">詳細</button> <button class="btn-ghost btn-sm" onclick="toggleReportApproval('${r._key}',${!r.approved})">${r.approved?'承認を取消':'承認する'}</button></td>
-      </tr>`).join('')||'<tr><td colspan="5" class="text-muted text-sm">日報なし</td></tr>'}</tbody>
-    </table>
-  </div>`;
-}
-async function toggleReportApproval(reportKey,newVal){
-  const r = _adminData.reports.find(x=>x._key===reportKey);
-  if(!r || r.id==null){showNotif('この日報には一意のIDが見つからないため承認できません');return;}
-  const {error} = await sb.from('daily_reports').update({approved:newVal}).eq('id',r.id);
-  if(error){showNotif('更新に失敗しました（daily_reportsにapprovedカラムが必要です）');return;}
-  showNotif(newVal?'承認しました':'承認を取消しました');
-  await loadAdminData();
-  renderAdminReportsSub();
 }
 function renderAdminReportsAI(){
   const stats = _adminData.profiles.map(p=>({p,...adminMemberStats(p)}));
