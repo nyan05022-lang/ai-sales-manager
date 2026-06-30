@@ -157,9 +157,9 @@ tr:hover td{background:var(--bg3)}
 
 /* RANK */
 .rank-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--bg4);color:var(--text2)}
-.rank-1{background:#fdecc8;color:#a06000}
-.rank-2{background:#ddeef8;color:#1060a8}
-.rank-3{background:#f8eae4;color:#a05030}
+.rank-1{background:#fbbf24;color:#fff}
+.rank-2{background:#cbd5e1;color:#fff}
+.rank-3{background:#fb923c;color:#fff}
 
 /* SLIDER SECTION */
 .slider-row{margin-bottom:14px}
@@ -429,7 +429,7 @@ tr:hover td{background:var(--bg3)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
           <div class="card">
-            <h3 class="mb-8">チームメンバー ランキング</h3>
+            <div class="flex-between mb-8"><h3>チームメンバー ランキング</h3><button class="btn-ghost btn-sm" onclick="showPage('ranking',document.querySelector('[onclick*=ranking]'))">全員を見る →</button></div>
             <div class="tabs" id="miniRankTabs">
               <div class="tab active" onclick="switchMiniRankTab('sales',this)">売上</div>
               <div class="tab" onclick="switchMiniRankTab('closeRate',this)">受注率</div>
@@ -2212,7 +2212,7 @@ function switchRankTab(tab,el){
 function renderRanking(){
   const data = (state._rankDataByTab && state._rankDataByTab[state.rankTab]) || state._rankData || [];
   document.getElementById('rankingTable').innerHTML=`<table><thead><tr><th>順位</th><th>氏名</th><th>売上</th><th>アポ数</th><th>成約数</th><th>KPI</th></tr></thead><tbody>${
-    data.map(p=>`<tr style="background:${p.isMe?'#f0f8ff':''}"><td><div class="rank-num rank-${Math.min(p.rank,3)}">${p.rank}</div></td><td><span style="font-weight:${p.isMe?'700':'400'};color:${p.isMe?'var(--blue)':'inherit'}">${p.name}${p.isMe?' 👈':''}</span></td><td style="font-weight:600;color:var(--green)">¥${p.sales}万</td><td>${p.appo}件</td><td>${p.contract}件</td><td><span class="badge ${p.kpi>=85?'badge-green':p.kpi>=70?'badge-blue':'badge-amber'}">${p.kpi}</span></td></tr>`).join('')
+    data.map(p=>`<tr style="background:${p.isMe?'#f0f8ff':''}"><td>${p.rank<=3?`<div class="rank-num rank-${p.rank}">${p.rank}</div>`:`<span style="font-weight:600;color:var(--text2);padding-left:8px">${p.rank}</span>`}</td><td><span style="font-weight:${p.isMe?'700':'400'};color:${p.isMe?'var(--blue)':'inherit'}">${p.name}${p.isMe?' 👈':''}</span></td><td style="font-weight:600;color:var(--green)">¥${p.sales}万</td><td>${p.appo}件</td><td>${p.contract}件</td><td><span class="badge ${p.kpi>=85?'badge-green':p.kpi>=70?'badge-blue':p.kpi>=50?'badge-amber':'badge-red'}">${p.kpi}</span></td></tr>`).join('')
   }</tbody></table>`;
 
   const me = data.find(p=>p.isMe)||{sales:0,appo:0,contract:0,kpi:0};
@@ -2224,17 +2224,17 @@ function renderRanking(){
     {label:'アポ数',you:me.appo,avg:avgAppo,unit:'件'},
     {label:'KPI達成率',you:me.kpi,avg:avgKpi,unit:'%'},
   ].map(c=>{
-    const max=Math.max(c.you,c.avg,1);
-    return `<div style="margin-bottom:12px">
-      <div class="flex-between text-sm mb-8"><span>${c.label}</span><span style="color:${c.you>=c.avg?'var(--green)':'var(--amber)'}">あなた ${c.you}${c.unit} / 平均 ${c.avg}${c.unit}</span></div>
-      <div style="display:flex;gap:4px;align-items:center;margin-bottom:3px">
-        <div style="width:36px;font-size:10px;color:var(--text2)">あなた</div>
-        <div style="flex:1;background:var(--bg4);border-radius:4px;height:8px"><div style="width:${Math.round(c.you/max*100)}%;background:var(--blue);height:8px;border-radius:4px"></div></div>
+    const max=Math.max(c.you,c.avg,1)*1.1;
+    const hasAvg = others.length>0 && c.avg>0;
+    const diffPct = hasAvg?Math.round((c.you-c.avg)/c.avg*100):null;
+    const diffLabel = diffPct!==null ? `（平均比 ${diffPct>=0?'+':''}${diffPct}%）` : others.length>0 ? '（チーム平均0のため比較不可）' : '（比較対象のメンバーがいません）';
+    return `<div style="margin-bottom:16px">
+      <div class="flex-between text-sm mb-8"><span>${c.label}</span><span style="font-weight:600;color:${diffPct===null?'var(--text2)':c.you>=c.avg?'var(--green)':'var(--amber)'}">あなた ${c.you}${c.unit}${diffLabel}</span></div>
+      <div style="position:relative;background:var(--bg4);border-radius:4px;height:14px">
+        <div style="position:absolute;left:0;top:0;height:14px;border-radius:4px;width:${Math.round(c.you/max*100)}%;background:var(--blue);transition:width .3s"></div>
+        ${hasAvg?`<div title="平均 ${c.avg}${c.unit}" style="position:absolute;top:-3px;height:20px;left:${Math.round(c.avg/max*100)}%;border-left:2px dashed var(--text3)"></div>`:''}
       </div>
-      <div style="display:flex;gap:4px;align-items:center">
-        <div style="width:36px;font-size:10px;color:var(--text2)">平均</div>
-        <div style="flex:1;background:var(--bg4);border-radius:4px;height:8px"><div style="width:${Math.round(c.avg/max*100)}%;background:var(--blue);height:8px;border-radius:4px"></div></div>
-      </div>
+      <div class="flex-between text-xs text-muted mt-4"><span>0${c.unit}</span><span>${hasAvg?`平均 ${c.avg}${c.unit}`:''}</span></div>
     </div>`;}).join('');
 }
 
